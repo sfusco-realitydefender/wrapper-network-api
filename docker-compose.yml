@@ -1,0 +1,23 @@
+services:
+  vision-api:
+    image: vision-api
+    container_name: vision-api
+    platform: linux/amd64
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./test_images:/app/test_images:ro
+      - ./output:/app/output
+    restart: unless-stopped
+
+  network-api:
+    build: ./network-api
+    container_name: network-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./test_images:/app/test_images
+      - ./output:/app/output
+    depends_on:
+      - vision-api
+    restart: unless-stopped
