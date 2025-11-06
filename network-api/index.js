@@ -4,11 +4,12 @@ const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
-
+const util = require('util');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const TEST_IMAGES_DIR = path.join(__dirname, 'test_images');
+const TEST_AUDIO_DIR = path.join(__dirname, 'test_audio');
 const OUTPUT_DIR = path.join(__dirname, 'output');
 
 const upload = multer({ dest: 'uploads/' });
@@ -94,6 +95,67 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     console.error('Error processing image:', error);
     res.status(500).json({
       error: 'Failed to process image',
+      message: error.message
+    });
+  }
+});
+
+app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
+  let inputFilePath = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    await fs.mkdir(TEST_AUDIO_DIR, { recursive: true });
+    await fs.mkdir(OUTPUT_DIR, { recursive: true });
+
+    const fileExtension = path.extname(req.file.originalname) || '.wav';
+    const audioId = uuidv4();
+    const fileName = `${audioId}${fileExtension}`;
+    inputFilePath = path.join(TEST_AUDIO_DIR, fileName);
+
+    await fs.copyFile(req.file.path, inputFilePath);
+    await fs.unlink(req.file.path);
+
+    const input_json = {
+      "files": [
+        {"path": `/requests/${fileName}`},
+      ]
+    }
+    const inputId = uuidv4();
+    const inputJsonPath = path.join(TEST_AUDIO_DIR, `${inputId}.json`);
+    await fs.writeFile(inputJsonPath, JSON.stringify(input_json), 'utf-8');
+
+    const audioApiResponse = await axios.post('http://audio-api:5000/predict_from_json', {
+      "input_json_path": `/requests/${inputId}.json`,
+      "output_dir": "/results"
+    });
+
+    console.log(util.inspect(audioApiResponse.data, { depth: null }));
+
+    if (audioApiResponse.data.status !== 'completed' || !audioApiResponse.data.results?.[0]) {
+      throw new Error('Invalid response from audio-api');
+    }
+
+    const parsedResult = audioApiResponse.data.results[0]
+
+    await fs.unlink(inputFilePath);
+    await fs.unlink(inputJsonPath);
+
+    res.json(parsedResult);
+
+  } catch (error) {
+    if (inputFilePath) {
+      try {
+        await fs.unlink(inputFilePath);
+      } catch {}
+    }
+
+    console.error('Error processing audio:', error);
+    res.status(500).json({
+      error: 'Failed to process audio',
       message: error.message
     });
   }
