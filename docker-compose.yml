@@ -1,6 +1,7 @@
 services:
   vision-api:
     image: vision-api
+    pull_policy: never
     container_name: vision-api
     platform: linux/amd64
     ports:
@@ -12,6 +13,7 @@ services:
 
   audio-api:
     image: audio-api
+    pull_policy: never
     container_name: audio-api
     platform: linux/amd64
     ports:

@@ -16,7 +16,11 @@ const upload = multer({ dest: 'uploads/' });
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// API status endpoint
+app.get('/api/status', (req, res) => {
   res.json({ message: 'Network API is running' });
 });
 
