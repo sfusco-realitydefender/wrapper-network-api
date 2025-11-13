@@ -767,16 +767,14 @@ function updateTableCount() {
 
 // Download all results as a single JSON
 function downloadAllResults() {
-  // Get all completed files with results
+  // Get all completed files with results - simplified format
   const completedFiles = Array.from(uploadState.files.values())
     .filter(f => f.status === 'completed' && f.result)
     .map(f => ({
       filename: f.name,
       type: f.type,
-      decision: f.decision,
-      score: f.score,
-      uploadedAt: f.uploadedAt || new Date().toISOString(),
-      result: f.result
+      decision: f.decision || 'UNKNOWN',
+      score: f.score !== undefined ? f.score : 0
     }));
   
   if (completedFiles.length === 0) {
@@ -784,15 +782,8 @@ function downloadAllResults() {
     return;
   }
   
-  // Create combined results object
-  const combinedResults = {
-    exportedAt: new Date().toISOString(),
-    totalFiles: completedFiles.length,
-    results: completedFiles
-  };
-  
-  // Create blob and download
-  const blob = new Blob([JSON.stringify(combinedResults, null, 2)], {
+  // Create blob and download - just the array of results
+  const blob = new Blob([JSON.stringify(completedFiles, null, 2)], {
     type: 'application/json'
   });
   
