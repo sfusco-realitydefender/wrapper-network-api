@@ -3,14 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>File Upload & Analysis</title>
+  <title>Reality Defender</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
+    <!-- App Header with Logo and Theme Toggle -->
+    <div class="app-header">
+      <div class="logo-container">
+        <img src="logo-and-wordmark.svg" alt="Reality Defender" class="logo" />
+      </div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <svg class="theme-icon" id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <!-- Sun icon (light mode) -->
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <span class="theme-label">Light</span>
+      </button>
+    </div>
+    
     <header class="header">
-      <h1>File Upload & Analysis</h1>
-      <p class="subtitle">Upload images or audio files for processing</p>
+      <h1>AI Content Detection</h1>
+      <p class="subtitle">Upload images or audio files for deepfake analysis</p>
       
       <!-- Model Status Indicators -->
       <div class="status-indicators">
@@ -94,7 +116,7 @@
         <pre id="resultContent"></pre>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="copyResult()">Copy to Clipboard</button>
+        <button class="btn btn-secondary" onclick="copyResult(event)">Copy to Clipboard</button>
         <button class="btn btn-primary" onclick="closeResultModal()">Close</button>
       </div>
     </div>

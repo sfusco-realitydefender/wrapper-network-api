@@ -151,13 +151,24 @@ async function uploadFile(fileData) {
       fileData.decision = result['rd-img-ensemble']?.decision || 'UNKNOWN';
       fileData.score = result['rd-img-ensemble']?.score || 0;
     } else if (fileData.type === 'audio') {
-      fileData.decision = result.final_decision || 'UNKNOWN';
-      fileData.score = result.final_probability || 0;
+      // Check for different possible field names in audio response
+      fileData.decision = result.final_decision || result.decision || result.prediction || 'UNKNOWN';
+      fileData.score = result.final_probability || result.probability || result.score || 0;
+      
+      // Log the result structure for debugging
+      console.log('Audio result structure:', result);
     }
     
     // Update file data
     fileData.result = result;
     fileData.status = 'completed';
+    fileData.error = null; // Clear any previous errors
+    
+    // Make sure we have valid decision and score before updating
+    if (fileData.decision === 'UNKNOWN' && fileData.type === 'audio') {
+      console.warn('Audio processing completed but decision/score fields not found in response');
+    }
+    
     updateFileStatus(fileData.id, 'completed', result);
     
   } catch (error) {
@@ -292,18 +303,24 @@ function getActionsHTML(fileData) {
   if (fileData.status === 'completed' && fileData.result) {
     return `
       <div class="actions-group">
-        <button class="btn btn-primary" onclick="showResult('${fileData.id}')">
-          Inspect
+        <button class="btn-icon btn-primary" onclick="showResult('${fileData.id}')" title="Inspect Result">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
         </button>
-        <button class="btn btn-secondary" onclick="downloadJSON('${fileData.id}')">
-          Download
+        <button class="btn-icon btn-secondary" onclick="downloadJSON('${fileData.id}')" title="Download JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+          </svg>
         </button>
       </div>
     `;
   } else if (fileData.status === 'error') {
     return `
-      <button class="btn btn-secondary" onclick="retryUpload('${fileData.id}')">
-        Retry
+      <button class="btn-icon btn-secondary" onclick="retryUpload('${fileData.id}')" title="Retry Upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
       </button>
     `;
   }
@@ -347,20 +364,43 @@ function closeResultModal() {
   uploadState.currentResult = null;
 }
 
-function copyResult() {
+function copyResult(event) {
   if (!uploadState.currentResult) return;
   
   const text = JSON.stringify(uploadState.currentResult, null, 2);
+  const button = event ? event.target : document.querySelector('.modal-footer .btn-secondary');
+  
   navigator.clipboard.writeText(text).then(() => {
     // Show temporary success message
-    const originalText = event.target.textContent;
-    event.target.textContent = 'Copied!';
+    const originalText = button.textContent;
+    button.textContent = 'Copied!';
+    button.classList.add('btn-success');
     setTimeout(() => {
-      event.target.textContent = originalText;
+      button.textContent = originalText;
+      button.classList.remove('btn-success');
     }, 2000);
   }).catch(err => {
     console.error('Failed to copy:', err);
-    alert('Failed to copy to clipboard');
+    // Fallback method for older browsers or when clipboard API fails
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      const originalText = button.textContent;
+      button.textContent = 'Copied!';
+      button.classList.add('btn-success');
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.classList.remove('btn-success');
+      }, 2000);
+    } catch (err) {
+      alert('Failed to copy to clipboard. Please try selecting and copying manually.');
+    }
+    document.body.removeChild(textArea);
   });
 }
 
@@ -625,5 +665,69 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Theme management
+function initializeTheme() {
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIcon = document.getElementById('themeIcon');
+  const themeLabel = themeToggle?.querySelector('.theme-label');
+  
+  // Check for saved theme preference or default to system preference
+  const savedTheme = localStorage.getItem('theme');
+  const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  const currentTheme = savedTheme || systemTheme;
+  
+  // Apply initial theme
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  updateThemeUI(currentTheme);
+  
+  // Theme toggle click handler
+  themeToggle?.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const newTheme = current === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeUI(newTheme);
+  });
+  
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('theme')) {
+      const newTheme = e.matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      updateThemeUI(newTheme);
+    }
+  });
+  
+  function updateThemeUI(theme) {
+    if (!themeIcon || !themeLabel) return;
+    
+    if (theme === 'dark') {
+      // Show moon icon for dark mode
+      themeIcon.innerHTML = `
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      `;
+      themeLabel.textContent = 'Dark';
+    } else {
+      // Show sun icon for light mode
+      themeIcon.innerHTML = `
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      `;
+      themeLabel.textContent = 'Light';
+    }
+  }
+}
+
 // Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', initializeApp);
+document.addEventListener('DOMContentLoaded', () => {
+  initializeTheme();
+  initializeApp();
+});
