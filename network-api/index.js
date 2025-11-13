@@ -24,6 +24,45 @@ app.get('/api/status', (req, res) => {
   res.json({ message: 'Network API is running' });
 });
 
+// Health check endpoints for models
+app.get('/api/health/image', async (req, res) => {
+  try {
+    const response = await axios.get('http://vision-api:5000/health', { 
+      timeout: 2000 
+    });
+    res.json({ 
+      status: 'ready', 
+      message: 'Image model is ready',
+      details: response.data 
+    });
+  } catch (error) {
+    res.json({ 
+      status: 'loading', 
+      message: 'Image model is loading...',
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/health/audio', async (req, res) => {
+  try {
+    const response = await axios.get('http://audio-api:5000/health', { 
+      timeout: 2000 
+    });
+    res.json({ 
+      status: 'ready', 
+      message: 'Audio model is ready',
+      details: response.data 
+    });
+  } catch (error) {
+    res.json({ 
+      status: 'loading', 
+      message: 'Audio model is loading...',
+      error: error.message 
+    });
+  }
+});
+
 async function waitForFile(filePath, timeoutMs = 60000, intervalMs = 500) {
   const startTime = Date.now();
 
@@ -106,6 +145,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 
 app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
   let inputFilePath = null;
+  let inputJsonPath = null;
 
   try {
     if (!req.file) {
@@ -129,7 +169,7 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
       ]
     }
     const inputId = uuidv4();
-    const inputJsonPath = path.join(TEST_AUDIO_DIR, `${inputId}.json`);
+    inputJsonPath = path.join(TEST_AUDIO_DIR, `${inputId}.json`);
     await fs.writeFile(inputJsonPath, JSON.stringify(input_json), 'utf-8');
 
     const audioApiResponse = await axios.post('http://audio-api:5000/predict_from_json', {
@@ -154,6 +194,11 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
     if (inputFilePath) {
       try {
         await fs.unlink(inputFilePath);
+      } catch {}
+    }
+    if (inputJsonPath) {
+      try {
+        await fs.unlink(inputJsonPath);
       } catch {}
     }
 

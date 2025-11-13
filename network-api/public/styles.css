@@ -69,6 +69,101 @@ body {
   font-size: 1rem;
 }
 
+/* Model Status Indicators */
+.status-indicators {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--color-surface-primary);
+  border-radius: var(--radius-lg);
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-background);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-secondary);
+  transition: all 0.3s ease;
+}
+
+.status-item.status-ready {
+  border-color: var(--color-positive);
+  background-color: #f0fdf4;
+}
+
+.status-item.status-loading {
+  border-color: var(--color-warning);
+  background-color: #fffbeb;
+}
+
+.status-item.status-error {
+  border-color: var(--color-negative);
+  background-color: #fef2f2;
+}
+
+.status-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.status-item.status-ready .status-icon {
+  color: var(--color-positive);
+}
+
+.status-item.status-loading .status-icon {
+  color: var(--color-warning);
+}
+
+.status-item.status-error .status-icon {
+  color: var(--color-negative);
+}
+
+.status-spinner {
+  animation: spin 2s linear infinite;
+}
+
+.status-text {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.875rem;
+}
+
+.status-label {
+  font-weight: 500;
+  color: var(--color-content);
+}
+
+.status-value {
+  font-weight: 600;
+  color: var(--color-content-subdued);
+}
+
+.status-item.status-ready .status-value {
+  color: var(--color-positive);
+}
+
+.status-item.status-loading .status-value {
+  color: var(--color-warning);
+}
+
+.status-item.status-error .status-value {
+  color: var(--color-negative);
+}
+
 /* Dropzone Styles */
 .dropzone {
   border: 2px dashed var(--color-border-primary);
@@ -179,6 +274,14 @@ body {
   background-color: var(--color-surface-secondary);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.preview-container:hover {
+  background-color: var(--color-surface-tertiary);
+  transform: scale(1.1);
 }
 
 .preview-image {
@@ -191,6 +294,21 @@ body {
   width: 20px;
   height: 20px;
   color: var(--color-content-subdued);
+}
+
+/* Audio playing state */
+.preview-container.audio-playing {
+  background-color: var(--color-accent);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.preview-container.audio-playing .preview-icon {
+  color: var(--color-content-inverse);
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
 }
 
 /* File Type Badge */
@@ -309,6 +427,60 @@ body {
 .btn-icon svg {
   width: 16px;
   height: 16px;
+}
+
+/* Decision and Score Styles */
+.decision {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.decision-artificial {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.decision-authentic {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.decision-unknown,
+.decision-pending {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-content-subdued);
+}
+
+.score {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.score-high {
+  color: #dc2626;
+}
+
+.score-medium {
+  color: #f59e0b;
+}
+
+.score-low {
+  color: #10b981;
+}
+
+.score-pending {
+  color: var(--color-content-subdued);
+}
+
+/* Actions Group */
+.actions-group {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
 }
 
 /* Empty State */
@@ -432,6 +604,16 @@ body {
     padding: var(--spacing-md);
   }
   
+  .status-indicators {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .status-item {
+    width: 100%;
+    justify-content: center;
+  }
+  
   .upload-table {
     font-size: 0.75rem;
   }
@@ -445,4 +627,24 @@ body {
     width: 95%;
     max-height: 90vh;
   }
+}
+
+/* Image Modal Styles */
+.modal-image-content {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.modal-image-body {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000;
+}
+
+.modal-image-body img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
 }

@@ -1,7 +1,13 @@
 // State management
 const uploadState = {
   files: new Map(),
-  currentResult: null
+  currentResult: null,
+  currentAudio: null,
+  currentImageModal: null,
+  modelStatus: {
+    image: 'checking',
+    audio: 'checking'
+  }
 };
 
 // DOM elements
@@ -14,8 +20,21 @@ const resultContent = document.getElementById('resultContent');
 
 // Initialize event listeners
 function initializeApp() {
-  // Dropzone events
-  dropzone.addEventListener('click', () => fileInput.click());
+  // Verify elements exist
+  if (!dropzone || !fileInput) {
+    console.error('Required elements not found:', { dropzone: !!dropzone, fileInput: !!fileInput });
+    return;
+  }
+  
+  // Dropzone click handler - trigger file input
+  dropzone.addEventListener('click', function(e) {
+    e.preventDefault();
+    // Programmatically click the file input
+    fileInput.click();
+    console.log('Dropzone clicked, triggering file input');
+  });
+  
+  // Drag and drop events
   dropzone.addEventListener('dragover', handleDragOver);
   dropzone.addEventListener('dragleave', handleDragLeave);
   dropzone.addEventListener('drop', handleDrop);
@@ -26,6 +45,10 @@ function initializeApp() {
   // Prevent default drag behavior on document
   document.addEventListener('dragover', (e) => e.preventDefault());
   document.addEventListener('drop', (e) => e.preventDefault());
+  
+  // Start health checks
+  checkModelHealth();
+  setInterval(checkModelHealth, 10000); // Check every 10 seconds
 }
 
 // Drag and drop handlers
@@ -69,7 +92,9 @@ function processFiles(files) {
         type: getFileType(file),
         status: 'uploading',
         result: null,
-        error: null
+        error: null,
+        decision: null,
+        score: null
       };
       
       uploadState.files.set(fileId, fileData);
@@ -121,6 +146,15 @@ async function uploadFile(fileData) {
     
     const result = await response.json();
     
+    // Extract decision and score based on file type
+    if (fileData.type === 'image') {
+      fileData.decision = result['rd-img-ensemble']?.decision || 'UNKNOWN';
+      fileData.score = result['rd-img-ensemble']?.score || 0;
+    } else if (fileData.type === 'audio') {
+      fileData.decision = result.final_decision || 'UNKNOWN';
+      fileData.score = result.final_probability || 0;
+    }
+    
     // Update file data
     fileData.result = result;
     fileData.status = 'completed';
@@ -143,13 +177,15 @@ function addTableRow(fileData) {
   row.id = `row-${fileData.id}`;
   row.innerHTML = `
     <td>
-      <div class="preview-container">
+      <div class="preview-container" onclick="handlePreviewClick('${fileData.id}')">
         ${getPreviewHTML(fileData)}
       </div>
     </td>
     <td>${escapeHtml(fileData.name)}</td>
     <td><span class="file-type ${fileData.type}">${fileData.type}</span></td>
     <td>${fileData.size}</td>
+    <td class="decision-cell">${getDecisionHTML(fileData.decision)}</td>
+    <td class="score-cell">${getScoreHTML(fileData.score)}</td>
     <td class="status-cell">
       ${getStatusHTML(fileData.status)}
     </td>
@@ -171,6 +207,18 @@ function updateFileStatus(fileId, status, result = null, error = null) {
   
   const row = document.getElementById(`row-${fileId}`);
   if (!row) return;
+  
+  // Update decision cell
+  const decisionCell = row.querySelector('.decision-cell');
+  if (decisionCell) {
+    decisionCell.innerHTML = getDecisionHTML(fileData.decision);
+  }
+  
+  // Update score cell
+  const scoreCell = row.querySelector('.score-cell');
+  if (scoreCell) {
+    scoreCell.innerHTML = getScoreHTML(fileData.score);
+  }
   
   // Update status cell
   const statusCell = row.querySelector('.status-cell');
@@ -243,9 +291,14 @@ function getStatusHTML(status, error = null) {
 function getActionsHTML(fileData) {
   if (fileData.status === 'completed' && fileData.result) {
     return `
-      <button class="btn btn-primary" onclick="showResult('${fileData.id}')">
-        Inspect
-      </button>
+      <div class="actions-group">
+        <button class="btn btn-primary" onclick="showResult('${fileData.id}')">
+          Inspect
+        </button>
+        <button class="btn btn-secondary" onclick="downloadJSON('${fileData.id}')">
+          Download
+        </button>
+      </div>
     `;
   } else if (fileData.status === 'error') {
     return `
@@ -255,6 +308,28 @@ function getActionsHTML(fileData) {
     `;
   }
   return '';
+}
+
+// Helper functions for decision and score display
+function getDecisionHTML(decision) {
+  if (!decision) return '<span class="decision-pending">-</span>';
+  
+  const className = decision === 'ARTIFICIAL' ? 'decision-artificial' : 
+                   decision === 'AUTHENTIC' ? 'decision-authentic' : 
+                   'decision-unknown';
+  
+  return `<span class="decision ${className}">${decision}</span>`;
+}
+
+function getScoreHTML(score) {
+  if (score === null || score === undefined) return '<span class="score-pending">-</span>';
+  
+  const percentage = (score * 100).toFixed(1);
+  const className = score >= 0.7 ? 'score-high' : 
+                   score >= 0.3 ? 'score-medium' : 
+                   'score-low';
+  
+  return `<span class="score ${className}">${percentage}%</span>`;
 }
 
 // Result modal
@@ -298,6 +373,235 @@ function retryUpload(fileId) {
   fileData.error = null;
   updateFileStatus(fileId, 'uploading');
   uploadFile(fileData);
+}
+
+// Media preview handlers
+function handlePreviewClick(fileId) {
+  const fileData = uploadState.files.get(fileId);
+  if (!fileData) return;
+  
+  if (fileData.type === 'image') {
+    showImagePreview(fileData);
+  } else if (fileData.type === 'audio') {
+    toggleAudioPlayback(fileData);
+  }
+}
+
+function showImagePreview(fileData) {
+  // Close any existing image modal
+  if (uploadState.currentImageModal) {
+    closeImageModal();
+  }
+  
+  // Stop any playing audio
+  if (uploadState.currentAudio) {
+    stopCurrentAudio();
+  }
+  
+  const imageModal = document.getElementById('imageModal');
+  const modalImage = document.getElementById('modalImage');
+  
+  const url = URL.createObjectURL(fileData.file);
+  modalImage.src = url;
+  modalImage.alt = fileData.name;
+  
+  imageModal.classList.add('show');
+  uploadState.currentImageModal = { fileData, url };
+}
+
+function closeImageModal() {
+  const imageModal = document.getElementById('imageModal');
+  imageModal.classList.remove('show');
+  
+  if (uploadState.currentImageModal && uploadState.currentImageModal.url) {
+    URL.revokeObjectURL(uploadState.currentImageModal.url);
+  }
+  
+  uploadState.currentImageModal = null;
+}
+
+// Make closeImageModal available globally for the modal close button
+window.closeImageModal = closeImageModal;
+
+function toggleAudioPlayback(fileData) {
+  // If clicking on the same audio that's playing, pause it
+  if (uploadState.currentAudio && uploadState.currentAudio.fileId === fileData.id) {
+    if (uploadState.currentAudio.audio.paused) {
+      uploadState.currentAudio.audio.play();
+    } else {
+      uploadState.currentAudio.audio.pause();
+      uploadState.currentAudio.audio.currentTime = 0; // Reset to beginning
+    }
+    return;
+  }
+  
+  // Stop any currently playing audio
+  if (uploadState.currentAudio) {
+    stopCurrentAudio();
+  }
+  
+  // Close any open image modal
+  if (uploadState.currentImageModal) {
+    closeImageModal();
+  }
+  
+  // Create new audio element
+  const audio = new Audio();
+  const url = URL.createObjectURL(fileData.file);
+  audio.src = url;
+  
+  // Update preview container to show playing state
+  const row = document.getElementById(`row-${fileData.id}`);
+  const previewContainer = row.querySelector('.preview-container');
+  previewContainer.classList.add('audio-playing');
+  
+  // Set up event listeners
+  audio.addEventListener('ended', () => {
+    stopCurrentAudio();
+  });
+  
+  audio.addEventListener('pause', () => {
+    if (uploadState.currentAudio && uploadState.currentAudio.fileId === fileData.id) {
+      previewContainer.classList.remove('audio-playing');
+    }
+  });
+  
+  audio.addEventListener('play', () => {
+    if (uploadState.currentAudio && uploadState.currentAudio.fileId === fileData.id) {
+      previewContainer.classList.add('audio-playing');
+    }
+  });
+  
+  // Start playing
+  audio.play();
+  
+  uploadState.currentAudio = {
+    fileId: fileData.id,
+    audio: audio,
+    url: url
+  };
+}
+
+function stopCurrentAudio() {
+  if (!uploadState.currentAudio) return;
+  
+  const { fileId, audio, url } = uploadState.currentAudio;
+  
+  // Stop and cleanup audio
+  audio.pause();
+  audio.currentTime = 0;
+  URL.revokeObjectURL(url);
+  
+  // Update UI
+  const row = document.getElementById(`row-${fileId}`);
+  if (row) {
+    const previewContainer = row.querySelector('.preview-container');
+    if (previewContainer) {
+      previewContainer.classList.remove('audio-playing');
+    }
+  }
+  
+  uploadState.currentAudio = null;
+}
+
+// Model health check functions
+async function checkModelHealth() {
+  // Check image model
+  checkImageModel();
+  // Check audio model
+  checkAudioModel();
+}
+
+async function checkImageModel() {
+  try {
+    const response = await fetch('/api/health/image');
+    const data = await response.json();
+    updateModelStatus('image', data.status, data.message);
+  } catch (error) {
+    updateModelStatus('image', 'error', 'Failed to check status');
+  }
+}
+
+async function checkAudioModel() {
+  try {
+    const response = await fetch('/api/health/audio');
+    const data = await response.json();
+    updateModelStatus('audio', data.status, data.message);
+  } catch (error) {
+    updateModelStatus('audio', 'error', 'Failed to check status');
+  }
+}
+
+function updateModelStatus(model, status, message) {
+  uploadState.modelStatus[model] = status;
+  
+  const statusElement = document.getElementById(`${model}ModelStatus`);
+  if (!statusElement) return;
+  
+  const statusIcon = statusElement.querySelector('.status-icon');
+  const statusValue = statusElement.querySelector('.status-value');
+  
+  // Remove all status classes
+  statusElement.classList.remove('status-ready', 'status-loading', 'status-error');
+  
+  // Update based on status
+  if (status === 'ready') {
+    statusElement.classList.add('status-ready');
+    statusIcon.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    `;
+    statusValue.textContent = 'Ready';
+  } else if (status === 'loading') {
+    statusElement.classList.add('status-loading');
+    statusIcon.innerHTML = `
+      <svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+      </svg>
+    `;
+    statusValue.textContent = 'Loading...';
+  } else {
+    statusElement.classList.add('status-error');
+    statusIcon.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    `;
+    statusValue.textContent = 'Offline';
+  }
+  
+  // Add tooltip with message
+  statusElement.title = message || '';
+}
+
+// Download JSON functionality
+function downloadJSON(fileId) {
+  const fileData = uploadState.files.get(fileId);
+  if (!fileData || !fileData.result) return;
+  
+  // Create blob with formatted JSON
+  const blob = new Blob([JSON.stringify(fileData.result, null, 2)], {
+    type: 'application/json'
+  });
+  
+  // Create download link
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  
+  // Generate filename with original name and timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+  const baseName = fileData.name.replace(/\.[^/.]+$/, ''); // Remove extension
+  a.download = `analysis-${baseName}-${timestamp}.json`;
+  
+  // Trigger download
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  // Clean up
+  URL.revokeObjectURL(url);
 }
 
 // Utility functions

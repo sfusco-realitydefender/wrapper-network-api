@@ -11,11 +11,40 @@
     <header class="header">
       <h1>File Upload & Analysis</h1>
       <p class="subtitle">Upload images or audio files for processing</p>
+      
+      <!-- Model Status Indicators -->
+      <div class="status-indicators">
+        <div class="status-item" id="imageModelStatus">
+          <div class="status-icon">
+            <svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>
+          </div>
+          <div class="status-text">
+            <span class="status-label">Image Model:</span>
+            <span class="status-value">Checking...</span>
+          </div>
+        </div>
+        
+        <div class="status-item" id="audioModelStatus">
+          <div class="status-icon">
+            <svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>
+          </div>
+          <div class="status-text">
+            <span class="status-label">Audio Model:</span>
+            <span class="status-value">Checking...</span>
+          </div>
+        </div>
+      </div>
     </header>
 
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" multiple accept="image/*,audio/*" style="display: none;">
+    
     <!-- Drag and Drop Zone -->
     <div id="dropzone" class="dropzone">
-      <input type="file" id="fileInput" multiple accept="image/*,audio/*" hidden>
       <div class="dropzone-content">
         <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -38,6 +67,8 @@
             <th>Filename</th>
             <th>Type</th>
             <th>Size</th>
+            <th>Decision</th>
+            <th>Score</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -65,6 +96,19 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="copyResult()">Copy to Clipboard</button>
         <button class="btn btn-primary" onclick="closeResultModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Preview Modal -->
+  <div id="imageModal" class="modal">
+    <div class="modal-content modal-image-content">
+      <div class="modal-header">
+        <h2>Image Preview</h2>
+        <button class="modal-close" onclick="closeImageModal()">×</button>
+      </div>
+      <div class="modal-body modal-image-body">
+        <img id="modalImage" src="" alt="Preview">
       </div>
     </div>
   </div>
