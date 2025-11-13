@@ -44,10 +44,24 @@ app.get('/api/health/image', async (req, res) => {
   }
 });
 
+// Track audio processing state
+let audioProcessingCount = 0;
+
 app.get('/api/health/audio', async (req, res) => {
+  // If we're currently processing audio, return busy status
+  if (audioProcessingCount > 0) {
+    res.json({ 
+      status: 'busy', 
+      message: `Audio model is processing (${audioProcessingCount} file${audioProcessingCount > 1 ? 's' : ''})`,
+      processing: true,
+      count: audioProcessingCount
+    });
+    return;
+  }
+  
   try {
     const response = await axios.get('http://audio-api:5000/health', { 
-      timeout: 2000 
+      timeout: 3000  // Increased timeout slightly
     });
     res.json({ 
       status: 'ready', 
@@ -55,11 +69,20 @@ app.get('/api/health/audio', async (req, res) => {
       details: response.data 
     });
   } catch (error) {
-    res.json({ 
-      status: 'loading', 
-      message: 'Audio model is loading...',
-      error: error.message 
-    });
+    // Check if it's a timeout - might mean the server is busy
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      res.json({ 
+        status: 'busy', 
+        message: 'Audio model may be processing',
+        error: error.message 
+      });
+    } else {
+      res.json({ 
+        status: 'loading', 
+        message: 'Audio model is loading...',
+        error: error.message 
+      });
+    }
   }
 });
 
@@ -146,9 +169,13 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
   let inputFilePath = null;
   let inputJsonPath = null;
+  
+  // Increment processing counter
+  audioProcessingCount++;
 
   try {
     if (!req.file) {
+      audioProcessingCount--;
       return res.status(400).json({ error: 'No audio file provided' });
     }
 
@@ -188,9 +215,15 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
     await fs.unlink(inputFilePath);
     await fs.unlink(inputJsonPath);
 
+    // Decrement processing counter on success
+    audioProcessingCount--;
+    
     res.json(parsedResult);
 
   } catch (error) {
+    // Decrement processing counter on error
+    audioProcessingCount--;
+    
     if (inputFilePath) {
       try {
         await fs.unlink(inputFilePath);

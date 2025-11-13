@@ -94,7 +94,8 @@ function processFiles(files) {
         result: null,
         error: null,
         decision: null,
-        score: null
+        score: null,
+        uploadedAt: new Date().toISOString()
       };
       
       uploadState.files.set(fileId, fileData);
@@ -181,8 +182,10 @@ async function uploadFile(fileData) {
 
 // Table management
 function addTableRow(fileData) {
-  // Show table
+  // Show table and header
   uploadTable.classList.add('has-data');
+  document.getElementById('tableHeader').style.display = 'flex';
+  updateTableCount();
   
   const row = document.createElement('tr');
   row.id = `row-${fileData.id}`;
@@ -238,6 +241,9 @@ function updateFileStatus(fileId, status, result = null, error = null) {
   // Update actions cell
   const actionsCell = row.querySelector('.actions-cell');
   actionsCell.innerHTML = getActionsHTML(fileData);
+  
+  // Update table count
+  updateTableCount();
 }
 
 function getPreviewHTML(fileData) {
@@ -582,7 +588,7 @@ function updateModelStatus(model, status, message) {
   const statusValue = statusElement.querySelector('.status-value');
   
   // Remove all status classes
-  statusElement.classList.remove('status-ready', 'status-loading', 'status-error');
+  statusElement.classList.remove('status-ready', 'status-loading', 'status-error', 'status-busy');
   
   // Update based on status
   if (status === 'ready') {
@@ -593,6 +599,15 @@ function updateModelStatus(model, status, message) {
       </svg>
     `;
     statusValue.textContent = 'Ready';
+  } else if (status === 'busy') {
+    // Show as ready but with processing indicator
+    statusElement.classList.add('status-ready');
+    statusIcon.innerHTML = `
+      <svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+      </svg>
+    `;
+    statusValue.textContent = 'Processing';
   } else if (status === 'loading') {
     statusElement.classList.add('status-loading');
     statusIcon.innerHTML = `
@@ -724,6 +739,71 @@ function initializeTheme() {
       themeLabel.textContent = 'Light';
     }
   }
+}
+
+// Update table count
+function updateTableCount() {
+  const countElement = document.getElementById('tableCount');
+  if (!countElement) return;
+  
+  const total = uploadState.files.size;
+  const completed = Array.from(uploadState.files.values()).filter(f => f.status === 'completed').length;
+  
+  if (completed > 0) {
+    countElement.textContent = `${completed} completed / ${total} total`;
+    document.getElementById('downloadAllBtn').disabled = false;
+  } else {
+    countElement.textContent = `${total} file${total !== 1 ? 's' : ''}`;
+    document.getElementById('downloadAllBtn').disabled = true;
+  }
+}
+
+// Download all results as a single JSON
+function downloadAllResults() {
+  // Get all completed files with results
+  const completedFiles = Array.from(uploadState.files.values())
+    .filter(f => f.status === 'completed' && f.result)
+    .map(f => ({
+      filename: f.name,
+      type: f.type,
+      decision: f.decision,
+      score: f.score,
+      uploadedAt: f.uploadedAt || new Date().toISOString(),
+      result: f.result
+    }));
+  
+  if (completedFiles.length === 0) {
+    alert('No completed results to download');
+    return;
+  }
+  
+  // Create combined results object
+  const combinedResults = {
+    exportedAt: new Date().toISOString(),
+    totalFiles: completedFiles.length,
+    results: completedFiles
+  };
+  
+  // Create blob and download
+  const blob = new Blob([JSON.stringify(combinedResults, null, 2)], {
+    type: 'application/json'
+  });
+  
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  
+  // Generate filename with timestamp
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+  a.download = `all-results-${timestamp}.json`;
+  
+  // Trigger download
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  // Clean up
+  URL.revokeObjectURL(url);
 }
 
 // Initialize app when DOM is ready

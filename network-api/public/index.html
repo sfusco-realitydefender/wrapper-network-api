@@ -82,6 +82,21 @@
 
     <!-- Upload Table -->
     <div class="table-container">
+      <!-- Table Header with Actions -->
+      <div class="table-header" id="tableHeader" style="display: none;">
+        <div class="table-info">
+          <span class="table-title">Uploaded Files</span>
+          <span class="table-count" id="tableCount"></span>
+        </div>
+        <div class="table-actions">
+          <button class="btn btn-primary" id="downloadAllBtn" onclick="downloadAllResults()" title="Download All Results">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 13l-3 3m0 0l3 3m-3-3V8" />
+            </svg>
+            <span>Download All Results</span>
+          </button>
+        </div>
+      </div>
       <table id="uploadTable" class="upload-table">
         <thead>
           <tr>
