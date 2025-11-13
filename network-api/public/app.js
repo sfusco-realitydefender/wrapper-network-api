@@ -174,9 +174,16 @@ async function uploadFile(fileData) {
     
   } catch (error) {
     console.error('Upload error:', error);
-    fileData.error = error.message;
+    
+    // Check if it's a timeout error
+    let errorMessage = error.message || 'Upload failed';
+    if (error.response?.status === 504) {
+      errorMessage = 'Processing timeout - the file may be too large or complex. Please try again.';
+    }
+    
+    fileData.error = errorMessage;
     fileData.status = 'error';
-    updateFileStatus(fileData.id, 'error', null, error.message);
+    updateFileStatus(fileData.id, 'error', null, errorMessage);
   }
 }
 

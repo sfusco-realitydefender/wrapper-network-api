@@ -202,6 +202,8 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
     const audioApiResponse = await axios.post('http://audio-api:5000/predict_from_json', {
       "input_json_path": `/requests/${inputId}.json`,
       "output_dir": "/results"
+    }, {
+      timeout: 120000  // 120 seconds timeout for audio processing
     });
 
     console.log(util.inspect(audioApiResponse.data, { depth: null }));
@@ -236,10 +238,19 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
     }
 
     console.error('Error processing audio:', error);
-    res.status(500).json({
-      error: 'Failed to process audio',
-      message: error.message
-    });
+    
+    // Check if it's a timeout error
+    if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || error.message.includes('timeout')) {
+      res.status(504).json({
+        error: 'Audio processing timeout',
+        message: 'The audio file is taking longer than expected to process. Please try a shorter file or try again later.'
+      });
+    } else {
+      res.status(500).json({
+        error: 'Failed to process audio',
+        message: error.message
+      });
+    }
   }
 });
 
