@@ -45,8 +45,8 @@
 }
 
 /* Light Theme (Default) */
-[data-theme="light"],
-:root {
+:root,
+[data-theme="light"] {
   /* Backgrounds */
   --color-background-primary: rgba(var(--off-white), 1);
   --color-background-secondary: rgba(var(--white), 1);
@@ -145,6 +145,59 @@
   --logo-color: rgba(var(--lime), 1);
 }
 
+/* Auto-apply dark theme based on system preference when no explicit theme is set */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Copy all dark theme variables */
+    /* Backgrounds */
+    --color-background-primary: rgba(var(--off-black), 1);
+    --color-background-secondary: rgba(var(--charcoal), 1);
+    --color-background-elevated: rgba(var(--charcoal), 0.8);
+    --color-background-overlay: rgba(var(--off-black), 0.8);
+    
+    /* Surfaces */
+    --color-surface-primary: rgba(var(--white), 0.05);
+    --color-surface-primary-hover: rgba(var(--white), 0.1);
+    --color-surface-secondary: rgba(var(--white), 0.1);
+    --color-surface-secondary-hover: rgba(var(--white), 0.2);
+    --color-surface-accent: rgba(var(--lime), 0.15);
+    --color-surface-positive: rgba(var(--positive-light), 0.1);
+    --color-surface-attention: rgba(var(--attention-light), 0.1);
+    --color-surface-negative: rgba(var(--negative-light), 0.1);
+    
+    /* Content */
+    --color-content-default: rgba(var(--off-white), 1);
+    --color-content-contrast: rgba(var(--white), 1);
+    --color-content-subdued: rgba(var(--off-white), 0.7);
+    --color-content-disabled: rgba(var(--off-white), 0.4);
+    --color-content-inverse: rgba(var(--off-black), 1);
+    --color-content-accent: rgba(var(--lime), 1);
+    --color-content-positive: rgba(var(--positive-light), 1);
+    --color-content-attention: rgba(var(--attention-light), 1);
+    --color-content-negative: rgba(var(--negative-light), 1);
+    
+    /* Borders */
+    --color-border-primary: rgba(var(--white), 0.1);
+    --color-border-primary-hover: rgba(var(--white), 0.2);
+    --color-border-subdued: rgba(var(--white), 0.05);
+    --color-border-accent: rgba(var(--lime), 0.5);
+    
+    /* Actions */
+    --color-action-primary: rgba(var(--deep-green-accent), 1);
+    --color-action-primary-hover: rgba(var(--deep-green), 1);
+    --color-action-secondary: rgba(var(--white), 0.1);
+    --color-action-secondary-hover: rgba(var(--white), 0.2);
+    
+    /* Shadows */
+    --shadow-sm: 0px 2px 3px 0px rgba(var(--off-black), 0.2);
+    --shadow-md: 0px 4px 20px 0px rgba(var(--off-black), 0.4);
+    --shadow-lg: 0px 4px 30px 0px rgba(var(--off-black), 0.6);
+    
+    /* Logo color */
+    --logo-color: rgba(var(--lime), 1);
+  }
+}
+
 /* Global Reset & Base Styles */
 * {
   margin: 0;
@@ -201,6 +254,13 @@ body {
 /* Dark theme logo color - white */
 [data-theme="dark"] .logo {
   filter: brightness(0) saturate(100%) invert(100%);
+}
+
+/* Auto-apply white logo for system dark mode when no explicit theme is set */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo {
+    filter: brightness(0) saturate(100%) invert(100%);
+  }
 }
 
 .logo:hover {
