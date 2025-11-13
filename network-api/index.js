@@ -16,8 +16,74 @@ const upload = multer({ dest: 'uploads/' });
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// API status endpoint
+app.get('/api/status', (req, res) => {
   res.json({ message: 'Network API is running' });
+});
+
+// Health check endpoints for models
+app.get('/api/health/image', async (req, res) => {
+  try {
+    const response = await axios.get('http://vision-api:5000/health', { 
+      timeout: 2000 
+    });
+    res.json({ 
+      status: 'ready', 
+      message: 'Image model is ready',
+      details: response.data 
+    });
+  } catch (error) {
+    res.json({ 
+      status: 'loading', 
+      message: 'Image model is loading...',
+      error: error.message 
+    });
+  }
+});
+
+// Track audio processing state
+let audioProcessingCount = 0;
+
+app.get('/api/health/audio', async (req, res) => {
+  // If we're currently processing audio, return busy status
+  if (audioProcessingCount > 0) {
+    res.json({ 
+      status: 'busy', 
+      message: `Audio model is processing (${audioProcessingCount} file${audioProcessingCount > 1 ? 's' : ''})`,
+      processing: true,
+      count: audioProcessingCount
+    });
+    return;
+  }
+  
+  try {
+    const response = await axios.get('http://audio-api:5000/health', { 
+      timeout: 3000  // Increased timeout slightly
+    });
+    res.json({ 
+      status: 'ready', 
+      message: 'Audio model is ready',
+      details: response.data 
+    });
+  } catch (error) {
+    // Check if it's a timeout - might mean the server is busy
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      res.json({ 
+        status: 'busy', 
+        message: 'Audio model may be processing',
+        error: error.message 
+      });
+    } else {
+      res.json({ 
+        status: 'loading', 
+        message: 'Audio model is loading...',
+        error: error.message 
+      });
+    }
+  }
 });
 
 async function waitForFile(filePath, timeoutMs = 60000, intervalMs = 500) {
@@ -102,9 +168,14 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 
 app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
   let inputFilePath = null;
+  let inputJsonPath = null;
+  
+  // Increment processing counter
+  audioProcessingCount++;
 
   try {
     if (!req.file) {
+      audioProcessingCount--;
       return res.status(400).json({ error: 'No audio file provided' });
     }
 
@@ -125,12 +196,14 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
       ]
     }
     const inputId = uuidv4();
-    const inputJsonPath = path.join(TEST_AUDIO_DIR, `${inputId}.json`);
+    inputJsonPath = path.join(TEST_AUDIO_DIR, `${inputId}.json`);
     await fs.writeFile(inputJsonPath, JSON.stringify(input_json), 'utf-8');
 
     const audioApiResponse = await axios.post('http://audio-api:5000/predict_from_json', {
       "input_json_path": `/requests/${inputId}.json`,
       "output_dir": "/results"
+    }, {
+      timeout: 120000  // 120 seconds timeout for audio processing
     });
 
     console.log(util.inspect(audioApiResponse.data, { depth: null }));
@@ -144,20 +217,40 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
     await fs.unlink(inputFilePath);
     await fs.unlink(inputJsonPath);
 
+    // Decrement processing counter on success
+    audioProcessingCount--;
+    
     res.json(parsedResult);
 
   } catch (error) {
+    // Decrement processing counter on error
+    audioProcessingCount--;
+    
     if (inputFilePath) {
       try {
         await fs.unlink(inputFilePath);
       } catch {}
     }
+    if (inputJsonPath) {
+      try {
+        await fs.unlink(inputJsonPath);
+      } catch {}
+    }
 
     console.error('Error processing audio:', error);
-    res.status(500).json({
-      error: 'Failed to process audio',
-      message: error.message
-    });
+    
+    // Check if it's a timeout error
+    if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || error.message.includes('timeout')) {
+      res.status(504).json({
+        error: 'Audio processing timeout',
+        message: 'The audio file is taking longer than expected to process. Please try a shorter file or try again later.'
+      });
+    } else {
+      res.status(500).json({
+        error: 'Failed to process audio',
+        message: error.message
+      });
+    }
   }
 });
 
