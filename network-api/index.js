@@ -75,7 +75,7 @@ app.get('/api/health/audio', async (req, res) => {
         status: 'busy', 
         message: 'Audio model may be processing',
         error: error.message 
-      });
+      }); can 
     } else {
       res.json({ 
         status: 'loading', 
@@ -129,6 +129,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
       httpAgent: new (require('http').Agent)({ keepAlive: false })
     });
 
+
     if (!visionApiResponse.data.success || !visionApiResponse.data.results?.[0]) {
       throw new Error('Invalid response from vision-api');
     }
@@ -138,8 +139,8 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     // Clean up input file
     await fs.unlink(inputFilePath);
 
-    // Return the conclusions directly (contains decision and score)
-    res.json(result.conclusions || result);
+    // Return the full result (includes metadata, bboxes, scores, heatmaps, etc.)
+    res.json(result);
 
   } catch (error) {
     if (inputFilePath) {

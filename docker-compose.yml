@@ -9,14 +9,6 @@ services:
       - ./test_images:/app/test_images
       - ./output:/app/output
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
 
   audio-api:
     image: audio-api
