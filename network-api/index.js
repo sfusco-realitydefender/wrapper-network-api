@@ -75,7 +75,7 @@ app.get('/api/health/audio', async (req, res) => {
         status: 'busy', 
         message: 'Audio model may be processing',
         error: error.message 
-      }); can 
+      }); 
     } else {
       res.json({ 
         status: 'loading', 
