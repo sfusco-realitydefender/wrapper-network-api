@@ -136,10 +136,8 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 
     const result = visionApiResponse.data.results[0];
     
-    // Clean up input file
     await fs.unlink(inputFilePath);
 
-    // Return the full result (includes metadata, bboxes, scores, heatmaps, etc.)
     res.json(result);
 
   } catch (error) {
