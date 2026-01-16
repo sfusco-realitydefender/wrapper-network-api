@@ -4,11 +4,19 @@ services:
     container_name: vision-api
     platform: linux/amd64
     ports:
-      - "5001:5000"
+      - "8000:8000"
     volumes:
-      - ./test_images:/app/test_images:ro
+      - ./test_images:/app/test_images
       - ./output:/app/output
     restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 
   audio-api:
     image: audio-api
@@ -24,6 +32,7 @@ services:
   network-api:
     build: ./network-api
     container_name: network-api
+    user: "999:999"
     ports:
       - "3000:3000"
     volumes:
@@ -31,6 +40,7 @@ services:
       - ./output:/app/output
       - ./audio-requests:/app/test_audio
       - ./audio-results:/app/audio_output
+      - ./uploads:/app/uploads
     depends_on:
       - vision-api
       - audio-api

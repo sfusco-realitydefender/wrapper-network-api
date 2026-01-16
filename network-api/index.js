@@ -27,7 +27,7 @@ app.get('/api/status', (req, res) => {
 // Health check endpoints for models
 app.get('/api/health/image', async (req, res) => {
   try {
-    const response = await axios.get('http://vision-api:5000/health', { 
+    const response = await axios.get('http://vision-api:8000/health', { 
       timeout: 2000 
     });
     res.json({ 
@@ -103,7 +103,6 @@ async function waitForFile(filePath, timeoutMs = 60000, intervalMs = 500) {
 
 app.post('/analyze', upload.single('image'), async (req, res) => {
   let inputFilePath = null;
-  let outputFilePath = null;
 
   try {
     if (!req.file) {
@@ -111,7 +110,6 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     }
 
     await fs.mkdir(TEST_IMAGES_DIR, { recursive: true });
-    await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
     const fileExtension = path.extname(req.file.originalname) || '.jpg';
     const imageId = uuidv4();
@@ -121,40 +119,32 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     await fs.copyFile(req.file.path, inputFilePath);
     await fs.unlink(req.file.path);
 
-    const visionApiResponse = await axios.post('http://vision-api:5000/', {
-      paths: {
-        input: `/app/test_images/${fileName}`,
-        output: '/app/output'
-      }
+    const visionApiResponse = await axios.post('http://vision-api:8000/predict', {
+      images: [
+        { path: `/app/test_images/${fileName}` }
+      ],
+      request_id: imageId
+    }, {
+      timeout: 120000,  // 120 seconds timeout for image processing
+      httpAgent: new (require('http').Agent)({ keepAlive: false })
     });
 
-    if (visionApiResponse.data.status !== 'ok' || !visionApiResponse.data.results?.[0]?.result_path) {
+    if (!visionApiResponse.data.success || !visionApiResponse.data.results?.[0]) {
       throw new Error('Invalid response from vision-api');
     }
 
-    const resultPath = visionApiResponse.data.results[0].result_path;
-    const outputFileName = path.basename(resultPath);
-    outputFilePath = path.join(OUTPUT_DIR, outputFileName);
-
-    await waitForFile(outputFilePath);
-
-    const resultData = await fs.readFile(outputFilePath, 'utf-8');
-    const parsedResult = JSON.parse(resultData);
-
+    const result = visionApiResponse.data.results[0];
+    
+    // Clean up input file
     await fs.unlink(inputFilePath);
-    await fs.unlink(outputFilePath);
 
-    res.json(parsedResult);
+    // Return the conclusions directly (contains decision and score)
+    res.json(result.conclusions || result);
 
   } catch (error) {
     if (inputFilePath) {
       try {
         await fs.unlink(inputFilePath);
-      } catch {}
-    }
-    if (outputFilePath) {
-      try {
-        await fs.unlink(outputFilePath);
       } catch {}
     }
 
