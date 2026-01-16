@@ -149,8 +149,9 @@ async function uploadFile(fileData) {
     
     // Extract decision and score based on file type
     if (fileData.type === 'image') {
-      fileData.decision = result['rd-img-ensemble']?.decision || 'UNKNOWN';
-      fileData.score = result['rd-img-ensemble']?.score || 0;
+      // Full result structure: result.conclusions['rd-img-ensemble']
+      fileData.decision = result.conclusions?.['rd-img-ensemble']?.decision || 'UNKNOWN';
+      fileData.score = result.conclusions?.['rd-img-ensemble']?.score || 0;
     } else if (fileData.type === 'audio') {
       // Check for different possible field names in audio response
       fileData.decision = result.final_decision || result.decision || result.prediction || 'UNKNOWN';
