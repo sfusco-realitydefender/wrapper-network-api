@@ -134,7 +134,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
       throw new Error('Invalid response from vision-api');
     }
 
-    const result = visionApiResponse.data.results[0];
+    const result = visionApiResponse.data.results[0]?.conclusions;
     
     await fs.unlink(inputFilePath);
 
