@@ -5,6 +5,8 @@ services:
     platform: linux/amd64
     runtime: nvidia
     user: "1000:1000"
+    environment:
+      - DD_TRACE_ENABLED=false
     ports:
       - "8000:8000"
     volumes:
@@ -25,6 +27,8 @@ services:
     platform: linux/amd64
     runtime: nvidia
     user: "1000:1000"
+    environment:
+      - DD_TRACE_ENABLED=false
     ports:
       - "5002:5000"
     volumes:
@@ -45,6 +49,8 @@ services:
     platform: linux/amd64
     runtime: nvidia
     user: "1000:1000"
+    environment:
+      - DD_TRACE_ENABLED=false
     ports:
       - "5003:5000"
     volumes:

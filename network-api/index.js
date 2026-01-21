@@ -331,7 +331,7 @@ app.post('/analyze-video', upload.single('video'), async (req, res) => {
       "recursive": true,
       "output_dir": "/app/results"
     }, {
-      timeout: 120000
+      timeout: 600000  // 600 seconds (10 minutes) timeout for video processing
     });
 
     console.log(util.inspect(videoApiResponse.data, { depth: null }));
