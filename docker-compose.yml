@@ -3,6 +3,7 @@ services:
     image: vision-api
     container_name: vision-api
     platform: linux/amd64
+    runtime: nvidia
     ports:
       - "8000:8000"
     volumes:
@@ -21,6 +22,7 @@ services:
     image: audio-api
     container_name: audio-api
     platform: linux/amd64
+    runtime: nvidia
     ports:
       - "5002:5000"
     volumes:
@@ -39,6 +41,7 @@ services:
     image: video-api
     container_name: video-api
     platform: linux/amd64
+    runtime: nvidia
     ports:
       - "5003:5000"
     volumes:
