@@ -1,7 +1,7 @@
 services:
-  vision-api:
-    image: vision-api
-    container_name: vision-api
+  image-api:
+    image: image-api
+    container_name: image-api
     platform: linux/amd64
     runtime: nvidia
     ports:
@@ -71,7 +71,7 @@ services:
       - ./video-results:/app/video_output
       - ./uploads:/app/uploads
     depends_on:
-      - vision-api
+      - image-api
       - audio-api
       - video-api
     restart: unless-stopped

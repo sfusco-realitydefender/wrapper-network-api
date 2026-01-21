@@ -28,7 +28,7 @@ app.get('/api/status', (req, res) => {
 // Health check endpoints for models
 app.get('/api/health/image', async (req, res) => {
   try {
-    const response = await axios.get('http://vision-api:8000/health', { 
+    const response = await axios.get('http://image-api:8000/health', { 
       timeout: 2000 
     });
     res.json({ 
@@ -162,7 +162,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     await fs.copyFile(req.file.path, inputFilePath);
     await fs.unlink(req.file.path);
 
-    const visionApiResponse = await axios.post('http://vision-api:8000/predict', {
+    const visionApiResponse = await axios.post('http://image-api:8000/predict', {
       images: [
         { path: `/app/test_images/${fileName}` }
       ],
@@ -174,7 +174,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 
 
     if (!visionApiResponse.data.success || !visionApiResponse.data.results?.[0]) {
-      throw new Error('Invalid response from vision-api');
+      throw new Error('Invalid response from image-api');
     }
 
     const conclusions = visionApiResponse.data.results[0]?.conclusions;
