@@ -336,14 +336,38 @@ app.post('/analyze-video', upload.single('video'), async (req, res) => {
 
     console.log(util.inspect(videoApiResponse.data, { depth: null }));
 
-    if (videoApiResponse.data.status !== 'completed' || !videoApiResponse.data.results?.[0]) {
+    if (videoApiResponse.data.status !== 'completed' || !videoApiResponse.data.results) {
       throw new Error('Invalid response from video-api');
     }
 
-    const parsedResult = videoApiResponse.data.results[0]
+    // Find the result for our specific uploaded file
+    const targetPath = `/app/requests/${fileName}`;
+    const parsedResult = videoApiResponse.data.results.find(r => r.file_path === targetPath);
 
-    await fs.unlink(inputFilePath);
-    await fs.unlink(inputJsonPath);
+    if (!parsedResult) {
+      throw new Error(`No result found for file: ${fileName}`);
+    }
+
+    // Clean up all processed video files to prevent reprocessing
+    for (const result of videoApiResponse.data.results) {
+      if (result.file_path && result.status === 'success') {
+        const cleanupPath = result.file_path.replace('/app/requests/', '');
+        const fullCleanupPath = path.join(TEST_VIDEO_DIR, cleanupPath);
+        try {
+          await fs.unlink(fullCleanupPath);
+        } catch (err) {
+          console.warn(`Failed to delete processed video file: ${fullCleanupPath}`, err.message);
+        }
+      }
+    }
+
+    if (inputJsonPath) {
+      try {
+        await fs.unlink(inputJsonPath);
+      } catch (err) {
+        console.warn(`Failed to delete input JSON: ${inputJsonPath}`, err.message);
+      }
+    }
 
     // Decrement processing counter on success
     videoProcessingCount--;

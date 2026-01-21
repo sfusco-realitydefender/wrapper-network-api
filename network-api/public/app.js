@@ -174,7 +174,7 @@ async function uploadFile(fileData) {
     } else if (fileData.type === 'video') {
       // Check for different possible field names in video response
       fileData.decision = result.final_decision || result.decision || result.prediction || 'UNKNOWN';
-      fileData.score = result.final_probability || result.probability || result.score || 0;
+      fileData.score = result.final_score || result.final_probability || result.probability || result.score || 0;
 
       // Log the result structure for debugging
       console.log('Video result structure:', result);
