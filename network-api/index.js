@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 
 const TEST_IMAGES_DIR = path.join(__dirname, 'test_images');
 const TEST_AUDIO_DIR = path.join(__dirname, 'test_audio');
+const TEST_VIDEO_DIR = path.join(__dirname, 'test_video');
 const OUTPUT_DIR = path.join(__dirname, 'output');
 
 const upload = multer({ dest: 'uploads/' });
@@ -47,40 +48,82 @@ app.get('/api/health/image', async (req, res) => {
 // Track audio processing state
 let audioProcessingCount = 0;
 
+// Track video processing state
+let videoProcessingCount = 0;
+
 app.get('/api/health/audio', async (req, res) => {
   // If we're currently processing audio, return busy status
   if (audioProcessingCount > 0) {
-    res.json({ 
-      status: 'busy', 
+    res.json({
+      status: 'busy',
       message: `Audio model is processing (${audioProcessingCount} file${audioProcessingCount > 1 ? 's' : ''})`,
       processing: true,
       count: audioProcessingCount
     });
     return;
   }
-  
+
   try {
-    const response = await axios.get('http://audio-api:5000/health', { 
+    const response = await axios.get('http://audio-api:5000/health', {
       timeout: 3000  // Increased timeout slightly
     });
-    res.json({ 
-      status: 'ready', 
+    res.json({
+      status: 'ready',
       message: 'Audio model is ready',
-      details: response.data 
+      details: response.data
     });
   } catch (error) {
     // Check if it's a timeout - might mean the server is busy
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      res.json({ 
-        status: 'busy', 
+      res.json({
+        status: 'busy',
         message: 'Audio model may be processing',
-        error: error.message 
-      }); 
+        error: error.message
+      });
     } else {
-      res.json({ 
-        status: 'loading', 
+      res.json({
+        status: 'loading',
         message: 'Audio model is loading...',
-        error: error.message 
+        error: error.message
+      });
+    }
+  }
+});
+
+app.get('/api/health/video', async (req, res) => {
+  // If we're currently processing video, return busy status
+  if (videoProcessingCount > 0) {
+    res.json({
+      status: 'busy',
+      message: `Video model is processing (${videoProcessingCount} file${videoProcessingCount > 1 ? 's' : ''})`,
+      processing: true,
+      count: videoProcessingCount
+    });
+    return;
+  }
+
+  try {
+    const response = await axios.get('http://video-api:5000/health', {
+      timeout: 3000
+    });
+    res.json({
+      status: 'ready',
+      message: 'Video model is ready',
+      details: response.data
+    });
+  } catch (error) {
+    // Check if it's a timeout - might mean the server is busy
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      res.json({
+        status: 'busy',
+        message: 'Video model may be processing',
+        error: error.message
+      });
+    } else {
+      res.json({
+        status: 'loading',
+        message: 'Video model is loading...',
+        error: error.message
       });
     }
   }
@@ -243,6 +286,96 @@ app.post('/analyze-audio', upload.single('audio'), async (req, res) => {
     } else {
       res.status(500).json({
         error: 'Failed to process audio',
+        message: error.message
+      });
+    }
+  }
+});
+
+app.post('/analyze-video', upload.single('video'), async (req, res) => {
+  let inputFilePath = null;
+  let inputJsonPath = null;
+
+  // Increment processing counter
+  videoProcessingCount++;
+
+  try {
+    if (!req.file) {
+      videoProcessingCount--;
+      return res.status(400).json({ error: 'No video file provided' });
+    }
+
+    await fs.mkdir(TEST_VIDEO_DIR, { recursive: true });
+    await fs.mkdir(OUTPUT_DIR, { recursive: true });
+
+    const fileExtension = path.extname(req.file.originalname) || '.mp4';
+    const videoId = uuidv4();
+    const fileName = `${videoId}${fileExtension}`;
+    inputFilePath = path.join(TEST_VIDEO_DIR, fileName);
+
+    await fs.copyFile(req.file.path, inputFilePath);
+    await fs.unlink(req.file.path);
+
+    const input_json = {
+      "files": [
+        {"path": `/requests/${fileName}`},
+      ]
+    }
+    const inputId = uuidv4();
+    inputJsonPath = path.join(TEST_VIDEO_DIR, `${inputId}.json`);
+    await fs.writeFile(inputJsonPath, JSON.stringify(input_json), 'utf-8');
+
+    const videoApiResponse = await axios.post('http://video-api:5000/predict_from_path', {
+      "directory": "/app/requests",
+      "extensions": ["mp4", "mov", "avi", "webm"],
+      "recursive": true,
+      "output_dir": "/app/results"
+    }, {
+      timeout: 120000
+    });
+
+    console.log(util.inspect(videoApiResponse.data, { depth: null }));
+
+    if (videoApiResponse.data.status !== 'completed' || !videoApiResponse.data.results?.[0]) {
+      throw new Error('Invalid response from video-api');
+    }
+
+    const parsedResult = videoApiResponse.data.results[0]
+
+    await fs.unlink(inputFilePath);
+    await fs.unlink(inputJsonPath);
+
+    // Decrement processing counter on success
+    videoProcessingCount--;
+
+    res.json(parsedResult);
+
+  } catch (error) {
+    // Decrement processing counter on error
+    videoProcessingCount--;
+
+    if (inputFilePath) {
+      try {
+        await fs.unlink(inputFilePath);
+      } catch {}
+    }
+    if (inputJsonPath) {
+      try {
+        await fs.unlink(inputJsonPath);
+      } catch {}
+    }
+
+    console.error('Error processing video:', error);
+
+    // Check if it's a timeout error
+    if (error.code === 'ECONNABORTED' || error.code === 'ECONNRESET' || error.message.includes('timeout')) {
+      res.status(504).json({
+        error: 'Video processing timeout',
+        message: 'The video file is taking longer than expected to process. Please try a shorter file or try again later.'
+      });
+    } else {
+      res.status(500).json({
+        error: 'Failed to process video',
         message: error.message
       });
     }

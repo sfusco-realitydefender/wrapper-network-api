@@ -6,7 +6,8 @@ const uploadState = {
   currentImageModal: null,
   modelStatus: {
     image: 'checking',
-    audio: 'checking'
+    audio: 'checking',
+    video: 'checking'
   }
 };
 
@@ -102,7 +103,7 @@ function processFiles(files) {
       addTableRow(fileData);
       uploadFile(fileData);
     } else {
-      alert(`Invalid file type: ${file.name}. Please upload image or audio files only.`);
+      alert(`Invalid file type: ${file.name}. Please upload image, audio, or video files only.`);
     }
   });
 }
@@ -110,26 +111,37 @@ function processFiles(files) {
 function isValidFile(file) {
   const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   const audioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/x-m4a', 'audio/mp4'];
-  
-  return imageTypes.includes(file.type) || audioTypes.includes(file.type) || 
-         (file.type === '' && (file.name.endsWith('.mp3') || file.name.endsWith('.wav') || file.name.endsWith('.m4a')));
+  const videoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
+
+  return imageTypes.includes(file.type) || audioTypes.includes(file.type) || videoTypes.includes(file.type) ||
+         (file.type === '' && (file.name.endsWith('.mp3') || file.name.endsWith('.wav') || file.name.endsWith('.m4a'))) ||
+         (file.type === '' && (file.name.endsWith('.mp4') || file.name.endsWith('.mov') || file.name.endsWith('.avi') || file.name.endsWith('.webm')));
 }
 
 function getFileType(file) {
   if (file.type.startsWith('image/')) return 'image';
   if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a)$/i)) return 'audio';
+  if (file.type.startsWith('video/') || file.name.match(/\.(mp4|mov|avi|webm)$/i)) return 'video';
   return 'unknown';
 }
 
 // File upload
 async function uploadFile(fileData) {
   const formData = new FormData();
-  
-  // Use different field names for image vs audio as expected by the backend
-  const fieldName = fileData.type === 'image' ? 'image' : 'audio';
+
+  // Use different field names for different types as expected by the backend
+  let fieldName, endpoint;
+  if (fileData.type === 'image') {
+    fieldName = 'image';
+    endpoint = '/analyze';
+  } else if (fileData.type === 'audio') {
+    fieldName = 'audio';
+    endpoint = '/analyze-audio';
+  } else if (fileData.type === 'video') {
+    fieldName = 'video';
+    endpoint = '/analyze-video';
+  }
   formData.append(fieldName, fileData.file);
-  
-  const endpoint = fileData.type === 'image' ? '/analyze' : '/analyze-audio';
   
   try {
     // Update status to processing
@@ -156,9 +168,16 @@ async function uploadFile(fileData) {
       // Check for different possible field names in audio response
       fileData.decision = result.final_decision || result.decision || result.prediction || 'UNKNOWN';
       fileData.score = result.final_probability || result.probability || result.score || 0;
-      
+
       // Log the result structure for debugging
       console.log('Audio result structure:', result);
+    } else if (fileData.type === 'video') {
+      // Check for different possible field names in video response
+      fileData.decision = result.final_decision || result.decision || result.prediction || 'UNKNOWN';
+      fileData.score = result.final_probability || result.probability || result.score || 0;
+
+      // Log the result structure for debugging
+      console.log('Video result structure:', result);
     }
     
     // Update file data
@@ -167,8 +186,8 @@ async function uploadFile(fileData) {
     fileData.error = null; // Clear any previous errors
     
     // Make sure we have valid decision and score before updating
-    if (fileData.decision === 'UNKNOWN' && fileData.type === 'audio') {
-      console.warn('Audio processing completed but decision/score fields not found in response');
+    if (fileData.decision === 'UNKNOWN' && (fileData.type === 'audio' || fileData.type === 'video')) {
+      console.warn(`${fileData.type} processing completed but decision/score fields not found in response`);
     }
     
     updateFileStatus(fileData.id, 'completed', result);
@@ -260,6 +279,11 @@ function getPreviewHTML(fileData) {
     // Clean up object URL after image loads
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     return `<img src="${url}" alt="${fileData.name}" class="preview-image">`;
+  } else if (fileData.type === 'video' && fileData.file) {
+    const url = URL.createObjectURL(fileData.file);
+    // Clean up object URL after video loads
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return `<video src="${url}" class="preview-image" muted></video>`;
   } else if (fileData.type === 'audio') {
     return `
       <svg class="preview-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -564,6 +588,8 @@ async function checkModelHealth() {
   checkImageModel();
   // Check audio model
   checkAudioModel();
+  // Check video model
+  checkVideoModel();
 }
 
 async function checkImageModel() {
@@ -583,6 +609,16 @@ async function checkAudioModel() {
     updateModelStatus('audio', data.status, data.message);
   } catch (error) {
     updateModelStatus('audio', 'error', 'Failed to check status');
+  }
+}
+
+async function checkVideoModel() {
+  try {
+    const response = await fetch('/api/health/video');
+    const data = await response.json();
+    updateModelStatus('video', data.status, data.message);
+  } catch (error) {
+    updateModelStatus('video', 'error', 'Failed to check status');
   }
 }
 

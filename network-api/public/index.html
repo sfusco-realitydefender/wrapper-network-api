@@ -41,7 +41,7 @@
     
     <header class="header">
       <h1>AI Content Detection</h1>
-      <p class="subtitle">Upload images or audio files for deepfake analysis</p>
+      <p class="subtitle">Upload images, audio, or video files for deepfake analysis</p>
       
       <!-- Model Status Indicators -->
       <div class="status-indicators">
@@ -68,11 +68,23 @@
             <span class="status-value">Checking...</span>
           </div>
         </div>
+
+        <div class="status-item" id="videoModelStatus">
+          <div class="status-icon">
+            <svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>
+          </div>
+          <div class="status-text">
+            <span class="status-label">Video Model:</span>
+            <span class="status-value">Checking...</span>
+          </div>
+        </div>
       </div>
     </header>
 
     <!-- Hidden file input -->
-    <input type="file" id="fileInput" multiple accept="image/*,audio/*" style="display: none;">
+    <input type="file" id="fileInput" multiple accept="image/*,audio/*,video/*" style="display: none;">
     
     <!-- Drag and Drop Zone -->
     <div id="dropzone" class="dropzone">
@@ -84,7 +96,7 @@
         </svg>
         <p class="dropzone-text">
           <span class="dropzone-text-main">Click to select or drag files here</span>
-          <span class="dropzone-text-sub">Supports: JPG, PNG, GIF, WEBP, MP3, WAV, M4A</span>
+          <span class="dropzone-text-sub">Supports: JPG, PNG, GIF, WEBP, MP3, WAV, M4A, MP4, MOV, AVI, WEBM</span>
         </p>
       </div>
     </div>
