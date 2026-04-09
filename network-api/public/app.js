@@ -4,6 +4,7 @@ const uploadState = {
   currentResult: null,
   currentAudio: null,
   currentImageModal: null,
+  currentMediaModal: null,
   modelStatus: {
     image: "checking",
     audio: "checking",
@@ -946,8 +947,8 @@ function handlePreviewClick(fileId) {
 
   if (fileData.type === "image") {
     showImagePreview(fileData);
-  } else if (fileData.type === "audio") {
-    toggleAudioPlayback(fileData);
+  } else if (fileData.type === "audio" || fileData.type === "video") {
+    showMediaPreview(fileData);
   }
 }
 
@@ -960,6 +961,11 @@ function showImagePreview(fileData) {
   // Stop any playing audio
   if (uploadState.currentAudio) {
     stopCurrentAudio();
+  }
+
+  // Close any open audio/video preview modal
+  if (uploadState.currentMediaModal) {
+    closeMediaModal();
   }
 
   const imageModal = document.getElementById("imageModal");
@@ -1017,6 +1023,79 @@ function closeImageModal() {
 
 // Make closeImageModal available globally for the modal close button
 window.closeImageModal = closeImageModal;
+
+function showMediaPreview(fileData) {
+  // Close any existing media modal before opening a new one
+  if (uploadState.currentMediaModal) {
+    closeMediaModal();
+  }
+
+  // Close image modal if open
+  if (uploadState.currentImageModal) {
+    closeImageModal();
+  }
+
+  // Stop any inline audio playback
+  if (uploadState.currentAudio) {
+    stopCurrentAudio();
+  }
+
+  const mediaModal = document.getElementById("mediaModal");
+  const mediaModalTitle = document.getElementById("mediaModalTitle");
+  const mediaPreviewContainer = document.getElementById("mediaPreviewContainer");
+  if (!mediaModal || !mediaModalTitle || !mediaPreviewContainer) return;
+
+  const url = URL.createObjectURL(fileData.file);
+  mediaPreviewContainer.innerHTML = "";
+
+  let mediaElement;
+  if (fileData.type === "video") {
+    mediaModalTitle.textContent = "Video Preview";
+    mediaElement = document.createElement("video");
+    mediaElement.controls = true;
+    mediaElement.preload = "metadata";
+    mediaElement.playsInline = true;
+  } else {
+    mediaModalTitle.textContent = "Audio Preview";
+    mediaElement = document.createElement("audio");
+    mediaElement.controls = true;
+    mediaElement.preload = "metadata";
+  }
+
+  mediaElement.src = url;
+  mediaElement.setAttribute("aria-label", fileData.name);
+  mediaPreviewContainer.appendChild(mediaElement);
+  mediaModal.classList.add("show");
+
+  uploadState.currentMediaModal = {
+    fileData,
+    url,
+    mediaElement,
+  };
+}
+
+function closeMediaModal() {
+  const mediaModal = document.getElementById("mediaModal");
+  const mediaPreviewContainer = document.getElementById("mediaPreviewContainer");
+
+  if (uploadState.currentMediaModal?.mediaElement) {
+    uploadState.currentMediaModal.mediaElement.pause();
+  }
+
+  if (uploadState.currentMediaModal?.url) {
+    URL.revokeObjectURL(uploadState.currentMediaModal.url);
+  }
+
+  if (mediaPreviewContainer) {
+    mediaPreviewContainer.innerHTML = "";
+  }
+
+  mediaModal?.classList.remove("show");
+  uploadState.currentMediaModal = null;
+}
+
+// Make closeMediaModal available globally for the modal close button
+window.closeMediaModal = closeMediaModal;
 
 function toggleAudioPlayback(fileData) {
   // If clicking on the same audio that's playing, pause it

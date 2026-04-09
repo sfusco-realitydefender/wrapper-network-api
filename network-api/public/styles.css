@@ -685,6 +685,11 @@ body {
   color: var(--color-content-attention);
 }
 
+.file-type.video {
+  background: rgba(var(--negative), 0.1);
+  color: var(--color-content-negative);
+}
+
 /* Status Styles */
 .status {
   display: flex;
@@ -1050,6 +1055,35 @@ body {
   max-width: 90vw;
   max-height: 90vh;
   background: transparent;
+}
+
+.modal-media-content {
+  max-width: 820px;
+}
+
+.modal-media-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.media-preview-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-preview-container video,
+.media-preview-container audio {
+  width: min(100%, 760px);
+}
+
+.media-preview-container video {
+  max-height: 70vh;
+  border-radius: var(--radius-lg);
+  background: rgba(var(--off-black), 0.9);
 }
 
 .modal-image-body {
