@@ -12,13 +12,14 @@ services:
     volumes:
       - ./test_images:/app/test_images
       - ./output:/app/output
+      - ./output:/tmp/data/rd
     restart: unless-stopped
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['0']
+              device_ids: ["0"]
               capabilities: [gpu]
 
   audio-api:
@@ -40,7 +41,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['1']
+              device_ids: ["0"]
               capabilities: [gpu]
 
   video-api:
@@ -62,7 +63,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['2']
+              device_ids: ["0"]
               capabilities: [gpu]
 
   network-api:
@@ -72,6 +73,29 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      - ./test_images:/app/test_images
+      - ./output:/app/output
+      - ./audio-requests:/app/test_audio
+      - ./audio-results:/app/audio_output
+      - ./video-requests:/app/test_video
+      - ./video-results:/app/video_output
+      - ./uploads:/app/uploads
+    depends_on:
+      - image-api
+      - audio-api
+      - video-api
+    restart: unless-stopped
+
+  network-api-dev:
+    build: ./network-api
+    container_name: network-api-dev
+    user: "1000:1000"
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./network-api:/app
+      - /app/node_modules
       - ./test_images:/app/test_images
       - ./output:/app/output
       - ./audio-requests:/app/test_audio
