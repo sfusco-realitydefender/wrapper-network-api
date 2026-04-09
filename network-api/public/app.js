@@ -160,67 +160,9 @@ function getScaledBboxPoints(bbox, dimensions, displayedWidth, displayedHeight) 
 
 function renderImageBboxes(fileData) {
   const overlay = document.getElementById("modalImageOverlay");
-  const modalImage = document.getElementById("modalImage");
-  if (!overlay || !modalImage) return;
+  if (!overlay) return;
 
   overlay.innerHTML = "";
-
-  const bboxes = getImageBboxes(fileData.result);
-  if (!bboxes.length) return;
-
-  const dimensions = getImageDimensions(fileData.result, fileData);
-  const displayedWidth = modalImage.clientWidth;
-  const displayedHeight = modalImage.clientHeight;
-
-  if (!displayedWidth || !displayedHeight) return;
-
-  overlay.style.width = `${displayedWidth}px`;
-  overlay.style.height = `${displayedHeight}px`;
-
-  bboxes.forEach((bboxData) => {
-    const scaledPoints = getScaledBboxPoints(
-      bboxData.bbox,
-      dimensions,
-      displayedWidth,
-      displayedHeight,
-    );
-    if (!scaledPoints) return;
-
-    const decision = getBboxDecision(bboxData);
-    const colors = getBboxColor(decision);
-
-    const box = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    box.classList.add("modal-bbox");
-    box.setAttribute("viewBox", `0 0 ${displayedWidth} ${displayedHeight}`);
-    box.setAttribute("width", displayedWidth);
-    box.setAttribute("height", displayedHeight);
-    box.setAttribute("aria-hidden", "true");
-    box.title = decision;
-
-    const polygon = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "polygon",
-    );
-    polygon.setAttribute(
-      "points",
-      scaledPoints.map((point) => `${point.x},${point.y}`).join(" "),
-    );
-    polygon.setAttribute("fill", "none");
-    polygon.setAttribute("stroke", colors.stroke);
-    polygon.setAttribute("stroke-width", "4");
-    polygon.setAttribute("stroke-linejoin", "round");
-
-    const label = document.createElement("span");
-    label.className = "modal-bbox-label";
-    label.textContent = decision;
-    label.style.left = `${scaledPoints[0].x}px`;
-    label.style.top = `${scaledPoints[0].y}px`;
-    label.style.background = colors.label;
-
-    box.appendChild(polygon);
-    overlay.appendChild(box);
-    overlay.appendChild(label);
-  });
 }
 
 function getHeatmapLayersForModel(result, modelName) {
