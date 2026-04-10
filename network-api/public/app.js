@@ -18,6 +18,8 @@ const HEATMAP_TINT_FILTERS = {
   cool: "sepia(1) saturate(8) hue-rotate(145deg) contrast(1.25) brightness(1.05)",
   mono: "grayscale(1) contrast(1.5) brightness(1.1)",
 };
+const HEATMAP_SOURCE_MODEL = "rd-pine-img";
+const HEATMAP_FULL_FRAME_MODEL = "rd-full-pine-img";
 
 function getImageAnalysisResult(result) {
   if (!result) return null;
@@ -42,6 +44,39 @@ function getImageRequestId(result) {
   );
 }
 
+function getImageResultMap(result) {
+  if (result?.results && typeof result.results === "object") {
+    if (!Array.isArray(result.results)) return result.results;
+    return result.results[0] || {};
+  }
+  return result || {};
+}
+
+function getPrimaryImageDecision(result) {
+  const imageResults = getImageResultMap(result);
+  const preferredModelOrder = ["rd-img-ensemble", "rd-ensemble", "rd-pine-img"];
+  const modelName =
+    preferredModelOrder.find((key) => imageResults?.[key]) ||
+    Object.keys(imageResults || {}).find(
+      (key) =>
+        imageResults?.[key] && typeof imageResults[key] === "object" && "decision" in imageResults[key],
+    ) ||
+    null;
+
+  if (!modelName) {
+    return { decision: "UNKNOWN", score: null };
+  }
+
+  const modelResult = imageResults[modelName] || {};
+  const scoreCandidate =
+    modelResult.score ?? modelResult.raw_score ?? modelResult.probability ?? null;
+
+  return {
+    decision: modelResult.decision || modelResult.prediction || "UNKNOWN",
+    score: Number.isFinite(Number(scoreCandidate)) ? Number(scoreCandidate) : null,
+  };
+}
+
 function normalizeHeatmapPath(heatmapPath, result) {
   if (typeof heatmapPath !== "string" || !heatmapPath) return "";
   if (heatmapPath.startsWith("/api/heatmaps/")) return heatmapPath;
@@ -54,37 +89,40 @@ function normalizeHeatmapPath(heatmapPath, result) {
   return `/api/heatmaps/${requestId}/${fileName}`;
 }
 
-function getImageHeatmapModelOptions(result) {
+function getImageHeatmapOptions(result) {
   const metadata = getImageMetadata(result);
-  if (!metadata) return [];
+  if (!metadata) return { fullFrame: false, facial: false };
 
-  const options = [];
-  const seenModels = new Set();
-
-  function addModelsFromMap(heatmaps) {
-    if (!heatmaps || typeof heatmaps !== "object") return;
-
-    Object.entries(heatmaps).forEach(([modelName, heatmapPath]) => {
-      if (typeof heatmapPath !== "string" || !heatmapPath) return;
-      if (seenModels.has(modelName)) return;
-
-      seenModels.add(modelName);
-      options.push({
-        id: modelName,
-        label: modelName,
-        model: modelName,
-      });
-    });
-  }
-
-  addModelsFromMap(metadata?.full_frame?.heatmaps);
+  const fullFramePath = getFullFrameHeatmapPath(metadata);
+  const hasFullFrame = typeof fullFramePath === "string" && !!fullFramePath;
 
   const bboxes = Array.isArray(metadata?.bboxes) ? metadata.bboxes : [];
-  bboxes.forEach((bboxData) => {
-    addModelsFromMap(bboxData?.heatmaps);
+  const hasFacial = bboxes.some((bboxData) => {
+    const facialPath = bboxData?.heatmaps?.[HEATMAP_SOURCE_MODEL];
+    return typeof facialPath === "string" && !!facialPath && !!bboxData?.bbox;
   });
 
-  return options;
+  return { fullFrame: hasFullFrame, facial: hasFacial };
+}
+
+function getFullFrameHeatmapPath(metadata) {
+  const fullFrameHeatmaps = metadata?.full_frame?.heatmaps;
+  if (!fullFrameHeatmaps || typeof fullFrameHeatmaps !== "object") return null;
+
+  const preferredByKey =
+    fullFrameHeatmaps[HEATMAP_FULL_FRAME_MODEL] ||
+    fullFrameHeatmaps[HEATMAP_SOURCE_MODEL];
+  if (typeof preferredByKey === "string" && preferredByKey) return preferredByKey;
+
+  const entries = Object.values(fullFrameHeatmaps).filter(
+    (value) => typeof value === "string" && value,
+  );
+  const resizedMatch = entries.find((value) =>
+    /heatmap_resized/i.test(value),
+  );
+  if (resizedMatch) return resizedMatch;
+
+  return entries[0] || null;
 }
 
 function getImageDimensions(result, fileData) {
@@ -169,36 +207,42 @@ function renderImageBboxes(fileData) {
   overlay.innerHTML = "";
 }
 
-function getHeatmapLayersForModel(result, modelName) {
+function getHeatmapLayersForMode(result, mode) {
   const metadata = getImageMetadata(result);
-  if (!metadata || !modelName) return [];
+  if (!metadata || !mode) return [];
 
   const layers = [];
-  const fullFramePath = metadata?.full_frame?.heatmaps?.[modelName];
-  if (typeof fullFramePath === "string" && fullFramePath) {
+
+  if (mode === "full-frame") {
+    const fullFramePath = getFullFrameHeatmapPath(metadata);
+    if (typeof fullFramePath !== "string" || !fullFramePath) return layers;
+
     layers.push({
       type: "full-frame",
       path: normalizeHeatmapPath(fullFramePath, result),
       bbox: null,
     });
+    return layers;
   }
 
-  const bboxes = Array.isArray(metadata?.bboxes) ? metadata.bboxes : [];
-  bboxes.forEach((bboxData) => {
-    const bboxPath = bboxData?.heatmaps?.[modelName];
-    if (typeof bboxPath !== "string" || !bboxPath || !bboxData?.bbox) return;
+  if (mode === "facial") {
+    const bboxes = Array.isArray(metadata?.bboxes) ? metadata.bboxes : [];
+    bboxes.forEach((bboxData) => {
+      const bboxPath = bboxData?.heatmaps?.[HEATMAP_SOURCE_MODEL];
+      if (typeof bboxPath !== "string" || !bboxPath || !bboxData?.bbox) return;
 
-    layers.push({
-      type: "bbox",
-      path: normalizeHeatmapPath(bboxPath, result),
-      bbox: bboxData.bbox,
+      layers.push({
+        type: "bbox",
+        path: normalizeHeatmapPath(bboxPath, result),
+        bbox: bboxData.bbox,
+      });
     });
-  });
+  }
 
   return layers;
 }
 
-function renderActiveHeatmapOverlays(fileData, modelName = "") {
+function renderActiveHeatmapOverlays(fileData, mode = "") {
   const heatmapOverlay = document.getElementById("modalHeatmapOverlay");
   const modalImage = document.getElementById("modalImage");
   if (!heatmapOverlay || !modalImage) return;
@@ -212,10 +256,10 @@ function renderActiveHeatmapOverlays(fileData, modelName = "") {
   heatmapOverlay.style.width = `${displayedWidth}px`;
   heatmapOverlay.style.height = `${displayedHeight}px`;
 
-  if (!modelName) return;
+  if (!mode) return;
 
   const dimensions = getImageDimensions(fileData.result, fileData);
-  const layers = getHeatmapLayersForModel(fileData.result, modelName);
+  const layers = getHeatmapLayersForMode(fileData.result, mode);
 
   layers.forEach((layer) => {
     const img = document.createElement("img");
@@ -267,7 +311,7 @@ function renderActiveHeatmapOverlays(fileData, modelName = "") {
   applyHeatmapVisualSettings();
 }
 
-function setActiveHeatmap(modelName = "", buttonId = "") {
+function setActiveHeatmap(mode = "", buttonId = "") {
   const heatmapOverlay = document.getElementById("modalHeatmapOverlay");
   const buttons = document.querySelectorAll(".heatmap-toggle");
   if (!heatmapOverlay) return;
@@ -277,25 +321,22 @@ function setActiveHeatmap(modelName = "", buttonId = "") {
     button.classList.toggle("active", isActive);
   });
 
-  if (!modelName) {
+  if (!mode) {
     heatmapOverlay.innerHTML = "";
 
     if (uploadState.currentImageModal) {
-      uploadState.currentImageModal.activeHeatmapModel = null;
+      uploadState.currentImageModal.activeHeatmapMode = null;
       uploadState.currentImageModal.activeHeatmapButtonId = null;
     }
     return;
   }
 
   if (uploadState.currentImageModal?.fileData) {
-    renderActiveHeatmapOverlays(
-      uploadState.currentImageModal.fileData,
-      modelName,
-    );
+    renderActiveHeatmapOverlays(uploadState.currentImageModal.fileData, mode);
   }
 
   if (uploadState.currentImageModal) {
-    uploadState.currentImageModal.activeHeatmapModel = modelName;
+    uploadState.currentImageModal.activeHeatmapMode = mode;
     uploadState.currentImageModal.activeHeatmapButtonId = buttonId;
   }
 }
@@ -333,8 +374,8 @@ function renderHeatmapControls(fileData) {
 
   buttonsContainer.innerHTML = "";
 
-  const options = getImageHeatmapModelOptions(fileData.result);
-  if (!options.length) {
+  const options = getImageHeatmapOptions(fileData.result);
+  if (!options.fullFrame && !options.facial) {
     controls.hidden = true;
     setActiveHeatmap();
     return;
@@ -342,33 +383,47 @@ function renderHeatmapControls(fileData) {
 
   controls.hidden = false;
 
-  const noHeatmapButton = document.createElement("button");
-  noHeatmapButton.type = "button";
-  noHeatmapButton.className = "heatmap-toggle active";
-  noHeatmapButton.dataset.buttonId = "none";
-  noHeatmapButton.textContent = "No Heatmap";
-  noHeatmapButton.addEventListener("click", () => setActiveHeatmap("", "none"));
-  buttonsContainer.appendChild(noHeatmapButton);
+  const buttonDefinitions = [
+    {
+      id: "full-frame",
+      label: "Full Frame Heatmap",
+      enabled: options.fullFrame,
+    },
+    {
+      id: "facial",
+      label: "Facial Heatmap",
+      enabled: options.facial,
+    },
+  ];
 
-  options.forEach((option) => {
+  buttonDefinitions.forEach((option) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "heatmap-toggle";
     button.dataset.buttonId = option.id;
     button.textContent = option.label;
-    button.addEventListener("click", () =>
-      setActiveHeatmap(option.model, option.id),
-    );
+    button.disabled = !option.enabled;
+    button.addEventListener("click", () => {
+      if (!option.enabled) return;
+      setActiveHeatmap(option.id, option.id);
+    });
     buttonsContainer.appendChild(button);
   });
 
-  const activeModel = uploadState.currentImageModal?.activeHeatmapModel || "";
+  const activeMode = uploadState.currentImageModal?.activeHeatmapMode || "";
   const activeButton = uploadState.currentImageModal?.activeHeatmapButtonId;
 
-  if (activeModel && activeButton) {
-    setActiveHeatmap(activeModel, activeButton);
+  const canRestore =
+    (activeMode === "full-frame" && options.fullFrame) ||
+    (activeMode === "facial" && options.facial);
+  if (canRestore && activeButton) {
+    setActiveHeatmap(activeMode, activeButton);
+  } else if (options.fullFrame) {
+    setActiveHeatmap("full-frame", "full-frame");
+  } else if (options.facial) {
+    setActiveHeatmap("facial", "facial");
   } else {
-    setActiveHeatmap("", "none");
+    setActiveHeatmap();
   }
 }
 
@@ -418,9 +473,9 @@ function initializeApp() {
 
   window.addEventListener("resize", () => {
     if (uploadState.currentImageModal?.fileData) {
-      const { fileData, activeHeatmapModel } = uploadState.currentImageModal;
+      const { fileData, activeHeatmapMode } = uploadState.currentImageModal;
       renderImageBboxes(fileData);
-      renderActiveHeatmapOverlays(fileData, activeHeatmapModel || "");
+      renderActiveHeatmapOverlays(fileData, activeHeatmapMode || "");
     }
   });
 
@@ -568,9 +623,9 @@ async function uploadFile(fileData) {
 
     // Extract decision and score based on file type
     if (fileData.type === "image") {
-      // Full result structure: result.conclusions['rd-img-ensemble']
-      fileData.decision = result["rd-img-ensemble"]?.decision || "UNKNOWN";
-      fileData.score = result["rd-img-ensemble"]?.score || -1;
+      const imageSummary = getPrimaryImageDecision(result);
+      fileData.decision = imageSummary.decision;
+      fileData.score = imageSummary.score;
     } else if (fileData.type === "audio") {
       // Check for different possible field names in audio response
       fileData.decision =
@@ -943,7 +998,7 @@ function showImagePreview(fileData) {
   uploadState.currentImageModal = {
     fileData,
     url,
-    activeHeatmapModel: null,
+    activeHeatmapMode: null,
     activeHeatmapButtonId: null,
     heatmapOpacity: "0.7",
     heatmapTint: "thermal",

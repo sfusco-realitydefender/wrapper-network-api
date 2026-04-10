@@ -1052,9 +1052,10 @@ body {
 
 /* Image Modal */
 .modal-image-content {
-  max-width: 90vw;
-  max-height: 90vh;
-  background: transparent;
+  width: min(1200px, 96vw);
+  max-width: 96vw;
+  max-height: 92vh;
+  background: var(--color-background-secondary);
 }
 
 .modal-media-content {
@@ -1087,81 +1088,120 @@ body {
 }
 
 .modal-image-body {
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: var(--spacing-md);
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: var(--spacing-md);
+  align-items: stretch;
   background: rgba(var(--off-black), 0.9);
   border-radius: var(--radius-xl);
+  overflow: hidden;
 }
 
 .modal-image-panel {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  width: 100%;
-  max-width: 90vw;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  background: rgba(var(--off-black), 0.25);
+  border: 1px solid rgba(var(--white), 0.08);
+  border-radius: var(--radius-lg);
   padding: var(--spacing-md);
 }
 
 .heatmap-controls {
   width: 100%;
-  max-width: min(90vw, 980px);
+  min-width: 0;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background: rgba(var(--white), 0.95);
+  border: 1px solid rgba(var(--off-black), 0.1);
+  box-shadow: var(--shadow-md);
+  overflow-y: auto;
+}
+
+[data-theme="dark"] .heatmap-controls {
+  background: rgba(var(--charcoal), 0.95);
+  border-color: rgba(var(--white), 0.15);
+}
+
+.heatmap-panel-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-content-contrast);
+}
+
+.heatmap-panel-subtitle {
+  margin-top: 2px;
+  color: var(--color-content-subdued);
+  font-size: 0.75rem;
+}
+
+.heatmap-panel-group {
+  margin-top: var(--spacing-md);
 }
 
 .heatmap-buttons {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: var(--spacing-sm);
 }
 
 .heatmap-adjustments {
-  margin-top: var(--spacing-sm);
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-md);
-  align-items: center;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  align-items: stretch;
 }
 
 .heatmap-adjustment {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
   align-items: center;
-  gap: var(--spacing-sm);
-  color: var(--color-content-default);
-  font-size: 0.75rem;
+  gap: var(--spacing-md);
+  color: var(--color-content-contrast);
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .heatmap-adjustment input[type="range"] {
-  width: 140px;
+  width: 100%;
 }
 
 .heatmap-adjustment select {
   border: 1px solid var(--color-border-primary);
-  background: var(--color-surface-secondary);
-  color: var(--color-content-default);
+  background: var(--color-background-secondary);
+  color: var(--color-content-contrast);
   border-radius: var(--radius-md);
-  padding: 4px 8px;
-  font-size: 0.75rem;
+  padding: 6px 8px;
+  font-size: 0.8rem;
 }
 
 .heatmap-toggle {
-  border: 1px solid var(--color-border-primary);
-  background: var(--color-surface-secondary);
-  color: var(--color-content-default);
+  border: 1px solid rgba(var(--off-black), 0.15);
+  background: rgba(var(--off-black), 0.04);
+  color: var(--color-content-contrast);
   border-radius: var(--radius-md);
-  padding: 6px 10px;
-  font-size: 0.75rem;
+  padding: 10px 12px;
+  font-size: 0.85rem;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.2;
+  text-align: left;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .heatmap-toggle:hover {
-  background: var(--color-surface-secondary-hover);
-  border-color: var(--color-border-primary-hover);
+  background: rgba(var(--off-black), 0.08);
+  border-color: rgba(var(--off-black), 0.25);
+}
+
+.heatmap-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: rgba(var(--off-black), 0.03);
+  border-color: rgba(var(--off-black), 0.12);
 }
 
 .heatmap-toggle.active {
@@ -1318,8 +1358,19 @@ body {
   }
 
   .modal-image-panel {
-    max-width: 95vw;
     padding: var(--spacing-sm);
+  }
+
+  .modal-image-body {
+    grid-template-columns: 1fr;
+  }
+
+  .heatmap-controls {
+    order: 2;
+  }
+
+  .modal-image-panel {
+    order: 1;
   }
 
   .dropzone {

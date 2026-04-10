@@ -241,9 +241,13 @@
           <button class="modal-close" onclick="closeImageModal()">×</button>
         </div>
         <div class="modal-body modal-image-body">
-          <div class="modal-image-panel">
-            <div id="heatmapControls" class="heatmap-controls" hidden>
+          <aside id="heatmapControls" class="heatmap-controls" hidden>
+            <div class="heatmap-panel-title">Heatmap Controls</div>
+            <div class="heatmap-panel-subtitle">Source model: rd-pine-img</div>
+            <div class="heatmap-panel-group">
               <div id="heatmapButtons" class="heatmap-buttons"></div>
+            </div>
+            <div class="heatmap-panel-group">
               <div class="heatmap-adjustments">
                 <label class="heatmap-adjustment">
                   <span>Opacity</span>
@@ -266,6 +270,8 @@
                 </label>
               </div>
             </div>
+          </aside>
+          <div class="modal-image-panel">
             <div class="modal-image-stage">
               <img id="modalImage" src="" alt="Preview" />
               <div id="modalHeatmapOverlay" class="modal-heatmap-overlay"></div>
