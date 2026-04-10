@@ -278,9 +278,26 @@ app.post("/analyze", upload.single("image"), async (req, res) => {
       console.warn("Failed to rewrite heatmap paths for request", imageId, err);
     }
 
+    const imageApiResult = visionApiResponse.data.results[0];
+    const conclusions = imageApiResult?.conclusions || {};
+    const result = Object.fromEntries(
+      Object.entries(conclusions).map(([key, value]) => [
+        key,
+        {
+          decision: value.decision,
+          score: value.score,
+          raw_score: value.raw_score,
+        },
+      ]),
+    );
+
     await fs.unlink(inputFilePath);
 
-    res.json(visionApiResponse.data);
+    res.json({
+      request_id: imageId,
+      results: result,
+      metadata: imageApiResult?.metadata || null,
+    });
   } catch (error) {
     if (inputFilePath) {
       try {

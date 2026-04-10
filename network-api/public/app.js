@@ -13,7 +13,8 @@ const uploadState = {
 };
 
 const HEATMAP_TINT_FILTERS = {
-  thermal: "sepia(1) saturate(7) hue-rotate(-20deg) contrast(1.3) brightness(1.05)",
+  thermal:
+    "sepia(1) saturate(7) hue-rotate(-20deg) contrast(1.3) brightness(1.05)",
   cool: "sepia(1) saturate(8) hue-rotate(145deg) contrast(1.25) brightness(1.05)",
   mono: "grayscale(1) contrast(1.5) brightness(1.1)",
 };
@@ -37,9 +38,7 @@ function getImageBboxes(result) {
 
 function getImageRequestId(result) {
   return (
-    result?.request_id ||
-    getImageAnalysisResult(result)?.request_id ||
-    null
+    result?.request_id || getImageAnalysisResult(result)?.request_id || null
   );
 }
 
@@ -148,7 +147,12 @@ function getBboxColor(decision) {
   };
 }
 
-function getScaledBboxPoints(bbox, dimensions, displayedWidth, displayedHeight) {
+function getScaledBboxPoints(
+  bbox,
+  dimensions,
+  displayedWidth,
+  displayedHeight,
+) {
   const points = getBboxPoints(bbox);
   if (!points) return null;
 
@@ -284,7 +288,10 @@ function setActiveHeatmap(modelName = "", buttonId = "") {
   }
 
   if (uploadState.currentImageModal?.fileData) {
-    renderActiveHeatmapOverlays(uploadState.currentImageModal.fileData, modelName);
+    renderActiveHeatmapOverlays(
+      uploadState.currentImageModal.fileData,
+      modelName,
+    );
   }
 
   if (uploadState.currentImageModal) {
@@ -299,9 +306,13 @@ function applyHeatmapVisualSettings() {
   const tintSelect = document.getElementById("heatmapTint");
 
   const opacityValue =
-    opacityInput?.value || uploadState.currentImageModal?.heatmapOpacity || "0.7";
+    opacityInput?.value ||
+    uploadState.currentImageModal?.heatmapOpacity ||
+    "0.7";
   const tintValue =
-    tintSelect?.value || uploadState.currentImageModal?.heatmapTint || "thermal";
+    tintSelect?.value ||
+    uploadState.currentImageModal?.heatmapTint ||
+    "thermal";
 
   heatmapLayers.forEach((heatmapLayer) => {
     heatmapLayer.style.opacity = String(opacityValue);
@@ -557,13 +568,9 @@ async function uploadFile(fileData) {
 
     // Extract decision and score based on file type
     if (fileData.type === "image") {
-      const imageResult = getImageAnalysisResult(result);
-      const imageConclusions =
-        imageResult?.conclusions || imageResult?.metadata?.conclusions || {};
-      // Full result structure: result.results[0].conclusions['rd-img-ensemble']
-      fileData.decision =
-        imageConclusions["rd-img-ensemble"]?.decision || "UNKNOWN";
-      fileData.score = imageConclusions["rd-img-ensemble"]?.score ?? -1;
+      // Full result structure: result.conclusions['rd-img-ensemble']
+      fileData.decision = result["rd-img-ensemble"]?.decision || "UNKNOWN";
+      fileData.score = result["rd-img-ensemble"]?.score || -1;
     } else if (fileData.type === "audio") {
       // Check for different possible field names in audio response
       fileData.decision =
@@ -984,7 +991,9 @@ function showMediaPreview(fileData) {
 
   const mediaModal = document.getElementById("mediaModal");
   const mediaModalTitle = document.getElementById("mediaModalTitle");
-  const mediaPreviewContainer = document.getElementById("mediaPreviewContainer");
+  const mediaPreviewContainer = document.getElementById(
+    "mediaPreviewContainer",
+  );
   if (!mediaModal || !mediaModalTitle || !mediaPreviewContainer) return;
 
   const url = URL.createObjectURL(fileData.file);
@@ -1018,7 +1027,9 @@ function showMediaPreview(fileData) {
 
 function closeMediaModal() {
   const mediaModal = document.getElementById("mediaModal");
-  const mediaPreviewContainer = document.getElementById("mediaPreviewContainer");
+  const mediaPreviewContainer = document.getElementById(
+    "mediaPreviewContainer",
+  );
 
   if (uploadState.currentMediaModal?.mediaElement) {
     uploadState.currentMediaModal.mediaElement.pause();
