@@ -33,11 +33,6 @@ function getImageMetadata(result) {
   return getImageAnalysisResult(result)?.metadata || null;
 }
 
-function getImageBboxes(result) {
-  const metadata = getImageMetadata(result);
-  return Array.isArray(metadata?.bboxes) ? metadata.bboxes : [];
-}
-
 function getImageRequestId(result) {
   return (
     result?.request_id || getImageAnalysisResult(result)?.request_id || null
@@ -160,31 +155,6 @@ function getBboxPoints(bbox) {
   return points;
 }
 
-function getBboxDecision(bboxData) {
-  return bboxData?.conclusions?.["rd-pine-img"]?.decision || "UNKNOWN";
-}
-
-function getBboxColor(decision) {
-  if (decision === "ARTIFICIAL") {
-    return {
-      stroke: "#dc2626",
-      label: "var(--bbox-artificial-label)",
-    };
-  }
-
-  if (decision === "AUTHENTIC") {
-    return {
-      stroke: "#16a34a",
-      label: "var(--bbox-authentic-label)",
-    };
-  }
-
-  return {
-    stroke: "#6b7280",
-    label: "var(--bbox-neutral-label)",
-  };
-}
-
 function getScaledBboxPoints(
   bbox,
   dimensions,
@@ -198,13 +168,6 @@ function getScaledBboxPoints(
     x: (point.x / dimensions.width) * displayedWidth,
     y: (point.y / dimensions.height) * displayedHeight,
   }));
-}
-
-function renderImageBboxes(fileData) {
-  const overlay = document.getElementById("modalImageOverlay");
-  if (!overlay) return;
-
-  overlay.innerHTML = "";
 }
 
 function getHeatmapLayersForMode(result, mode) {
@@ -451,7 +414,6 @@ function initializeApp() {
     e.preventDefault();
     // Programmatically click the file input
     fileInput.click();
-    console.log("Dropzone clicked, triggering file input");
   });
 
   // Drag and drop events
@@ -474,7 +436,6 @@ function initializeApp() {
   window.addEventListener("resize", () => {
     if (uploadState.currentImageModal?.fileData) {
       const { fileData, activeHeatmapMode } = uploadState.currentImageModal;
-      renderImageBboxes(fileData);
       renderActiveHeatmapOverlays(fileData, activeHeatmapMode || "");
     }
   });
@@ -635,9 +596,6 @@ async function uploadFile(fileData) {
         "UNKNOWN";
       fileData.score =
         result.final_probability || result.probability || result.score || 0;
-
-      // Log the result structure for debugging
-      console.log("Audio result structure:", result);
     } else if (fileData.type === "video") {
       // Check for different possible field names in video response
       fileData.decision =
@@ -651,9 +609,6 @@ async function uploadFile(fileData) {
         result.probability ||
         result.score ||
         0;
-
-      // Log the result structure for debugging
-      console.log("Video result structure:", result);
     }
 
     // Update file data
@@ -871,13 +826,22 @@ function getScoreHTML(score) {
   return `<span class="score ${className}">${percentage}%</span>`;
 }
 
+function getResultOutput(fileData) {
+  if (!fileData || !fileData.result) return null;
+  if (fileData.type !== "image") return fileData.result;
+
+  return {
+    conclusions: getImageResultMap(fileData.result),
+  };
+}
+
 // Result modal
 function showResult(fileId) {
   const fileData = uploadState.files.get(fileId);
   if (!fileData || !fileData.result) return;
 
-  uploadState.currentResult = fileData.result;
-  resultContent.textContent = JSON.stringify(fileData.result, null, 2);
+  uploadState.currentResult = getResultOutput(fileData);
+  resultContent.textContent = JSON.stringify(uploadState.currentResult, null, 2);
   resultModal.classList.add("show");
 }
 
@@ -982,7 +946,6 @@ function showImagePreview(fileData) {
 
   const url = URL.createObjectURL(fileData.file);
   modalImage.onload = () => {
-    renderImageBboxes(fileData);
     renderHeatmapControls(fileData);
   };
   modalImage.src = url;
@@ -1296,9 +1259,11 @@ function updateModelStatus(model, status, message) {
 function downloadJSON(fileId) {
   const fileData = uploadState.files.get(fileId);
   if (!fileData || !fileData.result) return;
+  const output = getResultOutput(fileData);
+  if (!output) return;
 
   // Create blob with formatted JSON
-  const blob = new Blob([JSON.stringify(fileData.result, null, 2)], {
+  const blob = new Blob([JSON.stringify(output, null, 2)], {
     type: "application/json",
   });
 

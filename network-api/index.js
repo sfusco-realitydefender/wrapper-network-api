@@ -4,7 +4,6 @@ const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const fs = require("fs").promises;
 const path = require("path");
-const util = require("util");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -155,21 +154,6 @@ app.get("/api/health/video", async (req, res) => {
     }
   }
 });
-
-async function waitForFile(filePath, timeoutMs = 60000, intervalMs = 500) {
-  const startTime = Date.now();
-
-  while (Date.now() - startTime < timeoutMs) {
-    try {
-      await fs.access(filePath);
-      return true;
-    } catch (err) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    }
-  }
-
-  throw new Error(`Timeout waiting for file: ${filePath}`);
-}
 
 async function resolveHeatmapSourcePath(originalPath) {
   if (typeof originalPath !== "string" || !originalPath) return null;
@@ -355,8 +339,6 @@ app.post("/analyze-audio", upload.single("audio"), async (req, res) => {
       },
     );
 
-    console.log(util.inspect(audioApiResponse.data, { depth: null }));
-
     if (
       audioApiResponse.data.status !== "completed" ||
       !audioApiResponse.data.results?.[0]
@@ -453,8 +435,6 @@ app.post("/analyze-video", upload.single("video"), async (req, res) => {
         timeout: 600000, // 600 seconds (10 minutes) timeout for video processing
       },
     );
-
-    console.log(util.inspect(videoApiResponse.data, { depth: null }));
 
     if (
       videoApiResponse.data.status !== "completed" ||

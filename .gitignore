@@ -1,5 +1,8 @@
 .DS_Store
+output
+uploads
 audio-requests
 audio-results
 test_images
+video-results
 *.tar
