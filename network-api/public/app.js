@@ -1,3 +1,160 @@
+// ─── Persistent Storage ───────────────────────────────────────────────────────
+
+const STORAGE_KEY = "rdHistory";
+const IDB_NAME = "realityDefenderFiles";
+const IDB_STORE = "files";
+const IDB_VERSION = 1;
+
+const idb = {
+  _db: null,
+
+  open() {
+    if (this._db) return Promise.resolve(this._db);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = (e) => {
+        e.target.result.createObjectStore(IDB_STORE, { keyPath: "id" });
+      };
+      req.onsuccess = (e) => {
+        this._db = e.target.result;
+        resolve(this._db);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
+
+  async save(id, blob) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put({ id, blob });
+      tx.oncomplete = resolve;
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  },
+
+  async get(id) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).get(id);
+      req.onsuccess = (e) => resolve(e.target.result?.blob ?? null);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
+
+  async clear() {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  },
+};
+
+const store = {
+  load() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  },
+
+  save(records) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    } catch (e) {
+      console.warn("localStorage quota exceeded:", e);
+    }
+  },
+
+  upsert(record) {
+    const records = this.load();
+    const idx = records.findIndex((r) => r.id === record.id);
+    if (idx >= 0) records[idx] = record;
+    else records.push(record);
+    this.save(records);
+  },
+
+  clear() {
+    localStorage.removeItem(STORAGE_KEY);
+  },
+};
+
+function serializeFileData(fileData) {
+  return {
+    id: fileData.id,
+    name: fileData.name,
+    size: fileData.size,
+    type: fileData.type,
+    status: fileData.status,
+    result: fileData.result,
+    decision: fileData.decision,
+    score: fileData.score,
+    uploadedAt: fileData.uploadedAt,
+    thumbnailUrl: fileData.thumbnailUrl || null,
+  };
+}
+
+async function generateThumbnail(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 150;
+      const ratio = Math.min(MAX / img.width, MAX / img.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
+
+async function persistCompletedRecord(fileData) {
+  if (fileData.type === "image" && fileData.file && !fileData.thumbnailUrl) {
+    fileData.thumbnailUrl = await generateThumbnail(fileData.file).catch(() => null);
+  }
+  if (fileData.file) {
+    await idb.save(fileData.id, fileData.file).catch((err) =>
+      console.warn("IndexedDB save failed:", err),
+    );
+  }
+  store.upsert(serializeFileData(fileData));
+}
+
+async function loadPersistedRecords() {
+  const records = store.load();
+  if (records.length === 0) return;
+  for (const record of records) {
+    const fileData = { ...record, file: null, error: null };
+    uploadState.files.set(fileData.id, fileData);
+    addTableRow(fileData);
+  }
+}
+
+async function clearHistory() {
+  if (!confirm("Clear all analysis history? This cannot be undone.")) return;
+  uploadState.files.clear();
+  store.clear();
+  await idb.clear().catch(() => {});
+  uploadTableBody.innerHTML = "";
+  uploadTable.classList.remove("has-data");
+  document.getElementById("tableHeader").style.display = "none";
+  updateTableCount();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // State management
 const uploadState = {
   files: new Map(),
@@ -627,6 +784,9 @@ async function uploadFile(fileData) {
     }
 
     updateFileStatus(fileData.id, "completed", result);
+    persistCompletedRecord(fileData).catch((err) =>
+      console.error("Failed to persist record:", err),
+    );
   } catch (error) {
     console.error("Upload error:", error);
 
@@ -710,11 +870,15 @@ function updateFileStatus(fileId, status, result = null, error = null) {
 }
 
 function getPreviewHTML(fileData) {
-  if (fileData.type === "image" && fileData.file) {
-    const url = URL.createObjectURL(fileData.file);
-    // Clean up object URL after image loads
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return `<img src="${url}" alt="${fileData.name}" class="preview-image">`;
+  if (fileData.type === "image") {
+    if (fileData.file) {
+      const url = URL.createObjectURL(fileData.file);
+      // Clean up object URL after image loads
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return `<img src="${url}" alt="${escapeHtml(fileData.name)}" class="preview-image">`;
+    } else if (fileData.thumbnailUrl) {
+      return `<img src="${fileData.thumbnailUrl}" alt="${escapeHtml(fileData.name)}" class="preview-image">`;
+    }
   } else if (fileData.type === "video" && fileData.file) {
     const url = URL.createObjectURL(fileData.file);
     // Clean up object URL after video loads
@@ -909,9 +1073,13 @@ function retryUpload(fileId) {
 }
 
 // Media preview handlers
-function handlePreviewClick(fileId) {
+async function handlePreviewClick(fileId) {
   const fileData = uploadState.files.get(fileId);
   if (!fileData) return;
+
+  if (!fileData.file) {
+    fileData.file = await idb.get(fileId).catch(() => null);
+  }
 
   if (fileData.type === "image") {
     showImagePreview(fileData);
@@ -1434,4 +1602,5 @@ function downloadAllResults() {
 document.addEventListener("DOMContentLoaded", () => {
   initializeTheme();
   initializeApp();
+  loadPersistedRecords();
 });
