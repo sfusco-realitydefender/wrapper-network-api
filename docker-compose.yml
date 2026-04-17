@@ -86,25 +86,3 @@ services:
       - video-api
     restart: unless-stopped
 
-  network-api-dev:
-    build: ./network-api
-    container_name: network-api-dev
-    user: "1000:1000"
-    command: npm run dev
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./network-api:/app
-      - /app/node_modules
-      - ./test_images:/app/test_images
-      - ./output:/app/output
-      - ./audio-requests:/app/test_audio
-      - ./audio-results:/app/audio_output
-      - ./video-requests:/app/test_video
-      - ./video-results:/app/video_output
-      - ./uploads:/app/uploads
-    depends_on:
-      - image-api
-      - audio-api
-      - video-api
-    restart: unless-stopped
