@@ -1,0 +1,66 @@
+services:
+  image-api:
+    image: image-api
+    pull_policy: never
+    container_name: image-api
+    user: "1000:1000"
+    environment:
+      - DD_TRACE_ENABLED=false
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./test_images:/app/test_images
+      - ./output:/app/output
+      - ./output:/tmp/data/rd
+    restart: unless-stopped
+
+  audio-api:
+    image: audio-api
+    pull_policy: never
+    container_name: audio-api
+    platform: linux/amd64
+    user: "1000:1000"
+    environment:
+      - DD_TRACE_ENABLED=false
+    ports:
+      - "5002:5000"
+    volumes:
+      - ./audio-requests:/requests
+      - ./audio-results:/results
+    restart: unless-stopped
+
+  video-api:
+    image: video-api
+    pull_policy: never
+    container_name: video-api
+    platform: linux/amd64
+    user: "1000:1000"
+    environment:
+      - DD_TRACE_ENABLED=false
+    ports:
+      - "5003:5000"
+    volumes:
+      - ./video-requests:/app/requests
+      - ./video-results:/app/results
+    restart: unless-stopped
+
+  network-api:
+    build: ./network-api
+    pull_policy: never
+    container_name: network-api
+    user: "1000:1000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./test_images:/app/test_images
+      - ./output:/app/output
+      - ./audio-requests:/app/test_audio
+      - ./audio-results:/app/audio_output
+      - ./video-requests:/app/test_video
+      - ./video-results:/app/video_output
+      - ./uploads:/app/uploads
+    depends_on:
+      - image-api
+      - audio-api
+      - video-api
+    restart: unless-stopped

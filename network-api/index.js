@@ -241,7 +241,7 @@ app.post("/analyze", upload.single("image"), async (req, res) => {
         request_id: imageId,
       },
       {
-        timeout: 120000, // 120 seconds timeout for image processing
+        timeout: 600000, // 10 minutes timeout for image processing
         httpAgent: new (require("http").Agent)({ keepAlive: false }),
       },
     );
@@ -335,7 +335,7 @@ app.post("/analyze-audio", upload.single("audio"), async (req, res) => {
         output_dir: "/results",
       },
       {
-        timeout: 120000, // 120 seconds timeout for audio processing
+        timeout: 600000, // 10 minutes timeout for audio processing
       },
     );
 
@@ -424,7 +424,7 @@ app.post("/analyze-video", upload.single("video"), async (req, res) => {
     await fs.writeFile(inputJsonPath, JSON.stringify(input_json), "utf-8");
 
     const videoApiResponse = await axios.post(
-      "http://video-api:5000/predict_from_path",
+      "http://video-api:5000/analyze_static_from_path",
       {
         directory: "/app/requests",
         extensions: ["mp4", "mov", "avi", "webm"],
