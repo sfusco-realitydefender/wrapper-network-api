@@ -7,6 +7,13 @@ services:
     user: "1000:1000"
     environment:
       - DD_TRACE_ENABLED=false
+      - TARGET_DEVICE=cuda:0
+      - PORT=5000
+      - STAGE=production
+      - DETECTION_TYPE=realscan
+    shm_size: "1gb"
+    ulimits:
+      memlock: -1
     ports:
       - "5003:5000"
     volumes:

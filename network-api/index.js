@@ -430,9 +430,11 @@ app.post("/analyze-video", upload.single("video"), async (req, res) => {
         extensions: ["mp4", "mov", "avi", "webm"],
         recursive: true,
         output_dir: "/app/results",
+        run_detection: true,
+        run_ensemble: true,
       },
       {
-        timeout: 600000, // 600 seconds (10 minutes) timeout for video processing
+        timeout: 7200000, // 7200 seconds (2 hours) timeout for video processing
       },
     );
 
