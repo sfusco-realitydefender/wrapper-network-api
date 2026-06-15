@@ -229,6 +229,19 @@ function getPrimaryImageDecision(result) {
   };
 }
 
+function getVideoAnalysisResult(result) {
+  if (!result) return null;
+  if (result.selected_result) return result.selected_result;
+  if (Array.isArray(result.results)) {
+    return (
+      result.results.find((item) => item?.status === "success") ||
+      result.results[0] ||
+      null
+    );
+  }
+  return result;
+}
+
 function normalizeHeatmapPath(heatmapPath, result) {
   if (typeof heatmapPath !== "string" || !heatmapPath) return "";
   if (heatmapPath.startsWith("/api/heatmaps/")) return heatmapPath;
@@ -754,17 +767,17 @@ async function uploadFile(fileData) {
       fileData.score =
         result.final_probability || result.probability || result.score || 0;
     } else if (fileData.type === "video") {
-      // Check for different possible field names in video response
+      const videoSummary = getVideoAnalysisResult(result) || {};
       fileData.decision =
-        result.final_decision ||
-        result.decision ||
-        result.prediction ||
+        videoSummary.final_decision ||
+        videoSummary.decision ||
+        videoSummary.prediction ||
         "UNKNOWN";
       fileData.score =
-        result.final_score ||
-        result.final_probability ||
-        result.probability ||
-        result.score ||
+        videoSummary.final_score ??
+        videoSummary.final_probability ??
+        videoSummary.probability ??
+        videoSummary.score ??
         0;
     }
 

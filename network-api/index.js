@@ -11,6 +11,7 @@ const TEST_IMAGES_DIR = path.join(__dirname, "test_images");
 const TEST_AUDIO_DIR = path.join(__dirname, "test_audio");
 const TEST_VIDEO_DIR = path.join(__dirname, "test_video");
 const OUTPUT_DIR = path.join(__dirname, "output");
+const VIDEO_OUTPUT_DIR = path.join(__dirname, "video_output");
 const HEATMAPS_SOURCE_DIRS = [
   path.join(OUTPUT_DIR, "rd-vision-input/rd-vision-preprocessing/heatmaps"),
   path.join(OUTPUT_DIR, "pipelines"),
@@ -214,6 +215,34 @@ async function rewriteHeatmapPathsForRequest(imageResult, requestId) {
   }
 
   await rewriteHeatmapMap(imageResult.metadata?.full_frame?.heatmaps);
+}
+
+async function readJsonFileIfExists(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, "utf-8"));
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.warn(`Failed to read JSON file: ${filePath}`, err.message);
+    }
+    return null;
+  }
+}
+
+async function readVideoResultJson(videoId) {
+  const resultDir = path.join(VIDEO_OUTPUT_DIR, `${videoId}_output`);
+  const resultFiles = {
+    ensemble_results: "ensemble_results.json",
+    video_decision: "video_decision.json",
+    video_info: "video_info.json",
+  };
+  const resultJson = {};
+
+  for (const [key, fileName] of Object.entries(resultFiles)) {
+    const parsed = await readJsonFileIfExists(path.join(resultDir, fileName));
+    if (parsed) resultJson[key] = parsed;
+  }
+
+  return Object.keys(resultJson).length > 0 ? resultJson : null;
 }
 
 app.post("/analyze", upload.single("image"), async (req, res) => {
@@ -455,6 +484,14 @@ app.post("/analyze-video", upload.single("video"), async (req, res) => {
       throw new Error(`No result found for file: ${fileName}`);
     }
 
+    const resultJson = await readVideoResultJson(videoId);
+    const enrichedResult = resultJson
+      ? { ...parsedResult, result_json: resultJson }
+      : parsedResult;
+    const enrichedResults = videoApiResponse.data.results.map((result) =>
+      result.file_path === targetPath ? enrichedResult : result,
+    );
+
     // Clean up all processed video files to prevent reprocessing
     for (const result of videoApiResponse.data.results) {
       if (result.file_path && result.status === "success") {
@@ -485,7 +522,11 @@ app.post("/analyze-video", upload.single("video"), async (req, res) => {
     // Decrement processing counter on success
     videoProcessingCount--;
 
-    res.json(parsedResult);
+    res.json({
+      ...videoApiResponse.data,
+      results: enrichedResults,
+      selected_result: enrichedResult,
+    });
   } catch (error) {
     // Decrement processing counter on error
     videoProcessingCount--;
