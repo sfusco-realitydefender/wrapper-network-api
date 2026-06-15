@@ -1003,8 +1003,32 @@ function getScoreHTML(score) {
   return `<span class="score ${className}">${percentage}%</span>`;
 }
 
+function getVideoResultOutput(result) {
+  if (!result) return null;
+  const selectedResult = getVideoAnalysisResult(result);
+
+  if (Array.isArray(result.results) || result.selected_result) {
+    return {
+      ...result,
+      results: Array.isArray(result.results)
+        ? result.results
+        : selectedResult
+          ? [selectedResult]
+          : [],
+      selected_result: result.selected_result || selectedResult,
+    };
+  }
+
+  return {
+    status: result.status || "completed",
+    results: selectedResult ? [selectedResult] : [],
+    selected_result: selectedResult,
+  };
+}
+
 function getResultOutput(fileData) {
   if (!fileData || !fileData.result) return null;
+  if (fileData.type === "video") return getVideoResultOutput(fileData.result);
   if (fileData.type !== "image") return fileData.result;
 
   return {
