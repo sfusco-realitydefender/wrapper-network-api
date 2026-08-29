@@ -1,8 +1,27 @@
 .DS_Store
-output
-uploads
-audio-requests
-audio-results
-test_images
-video-results
 *.tar
+hf-cache
+
+# Runtime bind-mount directories.
+#
+# The directory itself is kept in git (via .gitkeep) while its contents are
+# ignored. This matters: if Docker has to create a missing bind-mount source
+# it creates it root-owned, and the containers run as uid 1000, so writes fail
+# with EACCES. Keeping the directories in the repo means a fresh clone gets
+# them owned by whoever cloned.
+audio-requests/*
+!audio-requests/.gitkeep
+audio-results/*
+!audio-results/.gitkeep
+output/*
+!output/.gitkeep
+request-data/*
+!request-data/.gitkeep
+test_images/*
+!test_images/.gitkeep
+uploads/*
+!uploads/.gitkeep
+video-requests/*
+!video-requests/.gitkeep
+video-results/*
+!video-results/.gitkeep

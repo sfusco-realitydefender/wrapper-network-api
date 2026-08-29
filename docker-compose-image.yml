@@ -3,6 +3,7 @@ services:
     image: image-api
     container_name: image-api
     platform: linux/amd64
+    pull_policy: never
     runtime: nvidia
     user: "1000:1000"
     environment:
@@ -12,6 +13,7 @@ services:
     volumes:
       - ./test_images:/app/test_images
       - ./output:/app/output
+      - ./request-data:/tmp/data
       - ./output:/tmp/data/rd
     restart: unless-stopped
     deploy:

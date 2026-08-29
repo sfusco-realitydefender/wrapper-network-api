@@ -3,6 +3,7 @@ services:
     image: video-api
     container_name: video-api
     platform: linux/amd64
+    pull_policy: never
     runtime: nvidia
     user: "1000:1000"
     environment:

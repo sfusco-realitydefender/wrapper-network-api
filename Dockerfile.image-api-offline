@@ -1,0 +1,30 @@
+# Derived from the vendor image-api, with the DINOv3 backbone weights baked into
+# an image layer so the container never reaches huggingface.co at runtime.
+#
+# Build (native amd64 on this host; --platform is explicit for redistribution):
+#   docker build --platform linux/amd64 -t image-api:offline - < Dockerfile.image-api-offline
+#   docker tag image-api:offline image-api
+#
+# The second step matters: the compose files reference plain `image-api`, so the
+# baked image has to carry that tag or they will use the un-baked base instead.
+#
+# No build context is needed -- nothing is COPY'd -- hence the "-" above.
+FROM image-api:latest
+
+USER root
+
+# Cache at a uid-independent path so it resolves whatever user the container
+# runs as. The default (~/.cache/huggingface) breaks if the uid changes.
+ENV HF_HOME=/opt/hf
+
+# Download and chmod in ONE layer, otherwise the 1.2 GB is stored twice.
+RUN /app/.venv/bin/python -c \
+      "import timm; timm.create_model('vit_large_patch16_dinov3_qkvb', pretrained=True)" \
+ && rm -rf /opt/hf/xet /opt/hf/hub/.locks \
+ && chmod -R a+rX /opt/hf
+
+# Set AFTER the download above. Makes a missing/incomplete cache fail loudly
+# instead of silently reaching out to the network.
+ENV HF_HUB_OFFLINE=1
+
+USER 1000:1000

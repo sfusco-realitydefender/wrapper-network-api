@@ -3,6 +3,7 @@ services:
     image: audio-api
     container_name: audio-api
     platform: linux/amd64
+    pull_policy: never
     runtime: nvidia
     user: "1000:1000"
     environment:

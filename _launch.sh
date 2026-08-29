@@ -11,9 +11,14 @@ cd "$repo_dir"
 case "$action" in
     start)
         docker compose -f "$compose" up -d --build
+        if [ -z "$port" ]; then
+            echo "Containers started. No port given, so not waiting or opening a browser."
+            exit 0
+        fi
         url="http://localhost:${port}"
+        echo "Waiting for ${url} ..."
         for _ in {1..60}; do
-            curl -fsS -o /dev/null "$url" && break
+            curl -fs -o /dev/null "$url" && break
             sleep 1
         done
         xdg-open "$url" >/dev/null 2>&1 &
