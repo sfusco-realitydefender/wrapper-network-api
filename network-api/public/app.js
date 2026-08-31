@@ -844,7 +844,8 @@ function addTableRow(fileData) {
     </td>
   `;
 
-  uploadTableBody.appendChild(row);
+  // Newest first: put each new row at the top of the table
+  uploadTableBody.prepend(row);
 }
 
 function updateFileStatus(fileId, status, result = null, error = null) {
@@ -1598,8 +1599,10 @@ function updateTableCount() {
 
 // Download all results as a single JSON
 function downloadAllResults() {
-  // Get all completed files with results - simplified format
+  // Get all completed files with results - simplified format,
+  // newest first to match the table order
   const completedFiles = Array.from(uploadState.files.values())
+    .reverse()
     .filter((f) => f.status === "completed" && f.result)
     .map((f) => ({
       filename: f.name,
